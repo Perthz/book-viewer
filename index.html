@@ -172,27 +172,10 @@ const rim = new THREE.DirectionalLight(0xffffff, 0.25);
 rim.position.set(0, 2, -4);
 scene.add(rim);
 
-// ── Room geometry ────────────────────────────────────────────────────────────
-const floor = new THREE.Mesh(
-  new THREE.PlaneGeometry(20, 20),
-  new THREE.MeshStandardMaterial({ color: 0xf4f1ec, roughness: 0.9, metalness: 0 })
-);
-floor.rotation.x = -Math.PI / 2;
-floor.position.y = -0.01;
-floor.receiveShadow = true;
-scene.add(floor);
-
-const wall = new THREE.Mesh(
-  new THREE.PlaneGeometry(20, 10),
-  new THREE.MeshStandardMaterial({ color: 0xf4f1ec, roughness: 0.95, metalness: 0 })
-);
-wall.position.set(0, 5, -4);
-wall.receiveShadow = true;
-scene.add(wall);
-
+// ── Shadow catcher only ──────────────────────────────────────────────────────
 const ground = new THREE.Mesh(
   new THREE.PlaneGeometry(20, 20),
-  new THREE.ShadowMaterial({ opacity: 0.18 })
+  new THREE.ShadowMaterial({ opacity: 0.15 })
 );
 ground.rotation.x = -Math.PI / 2;
 ground.position.y = 0;
