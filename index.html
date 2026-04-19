@@ -3,327 +3,72 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>3D Book Model</title>
+  <title>3D Book Viewer</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #f4f1ec; overflow: hidden; font-family: system-ui, sans-serif; }
-    #viewer { width: 100vw; height: 100vh; display: block; }
-    #loading {
-      position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
-      background: #f4f1ec; color: #888; font-size: 1rem; z-index: 10;
-    }
-    #hint { position: fixed; bottom: 180px; left: 50%; transform: translateX(-50%); color: #bbb; font-size: 0.75rem; pointer-events: none; text-align: center; }
-    #controls {
-      position: fixed; top: 20px; right: 20px;
+    html, body { height: 100%; }
+    body { background: #f4f1ec; font-family: system-ui, sans-serif; overflow: hidden; }
+
+    #tabs {
+      position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+      display: flex; gap: 4px;
       background: rgba(20, 20, 26, 0.88);
       border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 12px; padding: 18px 20px;
-      color: #e0e0e0; font-size: 0.8rem;
-      width: 220px;
+      border-radius: 10px; padding: 4px;
       backdrop-filter: blur(12px);
-      z-index: 20; display: none;
+      z-index: 30;
     }
-    #controls h3 { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #666; margin-bottom: 14px; font-weight: 500; }
-    .dim-row { margin-bottom: 12px; }
-    .dim-label { display: flex; justify-content: space-between; margin-bottom: 5px; }
-    .dim-label span:first-child { color: #aaa; }
-    .dim-label span:last-child { color: #fff; font-weight: 600; min-width: 60px; text-align: right; }
-    .dim-unit { color: #555; font-size: 0.7rem; margin-left: 2px; }
-    input[type="range"] { -webkit-appearance: none; width: 100%; height: 3px; background: rgba(255,255,255,0.1); border-radius: 2px; outline: none; }
-    input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; background: #6c8fff; border-radius: 50%; cursor: pointer; box-shadow: 0 0 8px rgba(108,143,255,0.5); }
-    .divider { border: none; border-top: 1px solid rgba(255,255,255,0.06); margin: 14px 0; }
-    .cover-row { margin-top: 14px; }
-    .cover-row label { display: block; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #666; margin-bottom: 6px; font-weight: 500; }
-    #coverInput { display: none; }
-    .cover-btn { display: flex; align-items: center; gap: 6px; width: 100%; padding: 7px 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #ccc; font-size: 0.75rem; cursor: pointer; transition: background 0.2s; }
-    .cover-btn:hover { background: rgba(255,255,255,0.1); }
-    .cover-btn svg { flex-shrink: 0; }
-    #coverName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #888; font-size: 0.7rem; }
-    #coverPreview { width: 100%; height: 60px; object-fit: cover; border-radius: 4px; margin-top: 8px; display: none; border: 1px solid rgba(255,255,255,0.08); }
-    #resetBtn { width: 100%; padding: 7px; background: rgba(108,143,255,0.15); border: 1px solid rgba(108,143,255,0.3); border-radius: 6px; color: #6c8fff; font-size: 0.75rem; cursor: pointer; transition: background 0.2s; }
-    #resetBtn:hover { background: rgba(108,143,255,0.25); }
+    .tab {
+      padding: 8px 18px;
+      background: transparent; border: none;
+      color: #aaa; font-size: 0.8rem; font-family: inherit;
+      border-radius: 7px; cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .tab:hover { color: #fff; }
+    .tab.active {
+      background: rgba(108,143,255,0.22);
+      color: #fff;
+    }
 
-    .color-row { margin-top: 14px; }
-    .color-row label { display: block; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #666; margin-bottom: 6px; font-weight: 500; }
-    input[type="color"] { width: 100%; height: 36px; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; background: none; cursor: pointer; padding: 2px; }
+    iframe {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      border: 0;
+    }
+    iframe.hidden { display: none; }
   </style>
 </head>
 <body>
 
-<div id="viewer"></div>
-<div id="loading">Loading model…</div>
-<div id="hint">Drag to rotate · Scroll to zoom · Right-drag to pan</div>
-
-<div id="controls">
-  <h3>Book Dimensions</h3>
-  <div class="dim-row">
-    <div class="dim-label"><span>Width</span><span><span id="wVal">15.0</span><span class="dim-unit">cm</span></span></div>
-    <input type="range" id="wSlider" min="5" max="50" step="0.5" value="15">
-  </div>
-  <div class="dim-row">
-    <div class="dim-label"><span>Height</span><span><span id="hVal">21.0</span><span class="dim-unit">cm</span></span></div>
-    <input type="range" id="hSlider" min="5" max="40" step="0.5" value="21">
-  </div>
-  <div class="dim-row">
-    <div class="dim-label"><span>Thickness</span><span><span id="tVal">2.0</span><span class="dim-unit">cm</span></span></div>
-    <input type="range" id="tSlider" min="0.3" max="10" step="0.1" value="2">
-  </div>
-  <hr class="divider">
-  <button id="resetBtn">Reset to Default</button>
-
-  <div class="color-row">
-    <label>Book Color</label>
-    <input type="color" id="colorPicker" value="#9b7b5a">
-  </div>
-
-  <div class="cover-row">
-    <label>Cover Image</label>
-    <input type="file" id="coverInput" accept="image/*">
-    <button class="cover-btn" id="coverBtn">
-      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
-      </svg>
-      <span id="coverName">Choose image…</span>
-    </button>
-    <img id="coverPreview" alt="Cover preview">
-  </div>
+<div id="tabs">
+  <button class="tab active" data-frame="classicFrame">Hardcover</button>
+  <button class="tab" data-frame="noteFrame">Notebook (flip)</button>
 </div>
 
-<script type="importmap">
-{
-  "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
-  }
-}
-</script>
+<iframe id="classicFrame" src="./classic.html"></iframe>
+<iframe id="noteFrame" class="hidden" data-src="./note/index.html"></iframe>
 
-<script type="module">
-import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-
-const container = document.getElementById('viewer');
-const loading  = document.getElementById('loading');
-const controls = document.getElementById('controls');
-
-const sliders = {
-  w: document.getElementById('wSlider'),
-  h: document.getElementById('hSlider'),
-  t: document.getElementById('tSlider'),
-};
-const vals = {
-  w: document.getElementById('wVal'),
-  h: document.getElementById('hVal'),
-  t: document.getElementById('tVal'),
-};
-
-// ── Renderer ──────────────────────────────────────────────────────────────
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.15;
-container.appendChild(renderer.domElement);
-
-// ── Scene ───────────────────────────────────────────────────────────────────
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xf4f1ec);
-scene.fog = new THREE.Fog(0xf4f1ec, 8, 22);
-
-// ── Camera ──────────────────────────────────────────────────────────────────
-const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
-camera.position.set(2, 1.5, 3);
-
-// ── Controls ─────────────────────────────────────────────────────────────────
-const orbitControls = new OrbitControls(camera, renderer.domElement);
-orbitControls.enableDamping = true;
-orbitControls.dampingFactor = 0.06;
-orbitControls.minDistance = 0.3;
-orbitControls.maxDistance = 50;
-orbitControls.target.set(0, 0, 0);
-
-// ── Lights (Biblio warm-cozy rig) ────────────────────────────────────────────
-const hemi = new THREE.HemisphereLight(0xfffdf5, 0xe8e4dc, 0.5);
-scene.add(hemi);
-
-const key = new THREE.DirectionalLight(0xfff8e8, 1.5);
-key.position.set(4, 8, 5);
-key.castShadow = true;
-key.shadow.mapSize.set(2048, 2048);
-key.shadow.camera.left   = -8;
-key.shadow.camera.right  =  8;
-key.shadow.camera.top    =  6;
-key.shadow.camera.bottom = -6;
-key.shadow.camera.near   =  0.1;
-key.shadow.camera.far    = 25;
-key.shadow.bias          = -0.0005;
-key.shadow.normalBias    =  0.02;
-key.shadow.radius        =  4;
-scene.add(key);
-
-const fill = new THREE.DirectionalLight(0xf0f4f8, 0.35);
-fill.position.set(-5, 3, 2);
-scene.add(fill);
-
-const rim = new THREE.DirectionalLight(0xffffff, 0.25);
-rim.position.set(0, 2, -4);
-scene.add(rim);
-
-// ── Shadow catcher only ──────────────────────────────────────────────────────
-const ground = new THREE.Mesh(
-  new THREE.PlaneGeometry(20, 20),
-  new THREE.ShadowMaterial({ opacity: 0.15 })
-);
-ground.rotation.x = -Math.PI / 2;
-ground.position.y = 0;
-ground.receiveShadow = true;
-scene.add(ground);
-
-// ── Book group ───────────────────────────────────────────────────────────────
-// Original model dims: cover x[0.039, 0.773] y[-0.5, 0.5] z[-0.090, 0.0]
-// 1 model unit = 21 cm height
-const ORIG_W = 0.734, ORIG_H = 1.0, ORIG_D = 0.090;
-const REF_H_CM = 21;
-const DEFAULT_W = 15, DEFAULT_H = 21, DEFAULT_T = 2;
-
-let bookGroup = null;
-let coverMesh = null;
-let currentTexture = null;
-
-function applySize(wCm, hCm, tCm) {
-  if (!bookGroup) return;
-  const sx = wCm / REF_H_CM / ORIG_W;
-  const sy = hCm / REF_H_CM / ORIG_H;
-  const sz = tCm / REF_H_CM / ORIG_D;
-  bookGroup.scale.set(sx, sy, sz);
-  bookGroup.position.y = ORIG_H / 2 * sy;
-}
-
-// ── Load model ──────────────────────────────────────────────────────────────
-const loader = new GLTFLoader();
-loader.load(
-  './scene.gltf',
-  (gltf) => {
-    bookGroup = new THREE.Group();
-
-    // Identify cover: mesh whose AABB has highest Z max (front face ≈ 0)
-    let coverZMax = -Infinity;
-
-    gltf.scene.traverse((child) => {
-      if (child.isMesh) {
-        child.castShadow = true;
-        child.receiveShadow = true;
-        const cloned = child.clone();
-        bookGroup.add(cloned);
-
-        const box = new THREE.Box3().setFromObject(cloned);
-        if (box.max.z > coverZMax) {
-          coverZMax = box.max.z;
-          coverMesh = cloned;
-        }
-      }
-    });
-
-    const box = new THREE.Box3().setFromObject(bookGroup);
-    const center = box.getCenter(new THREE.Vector3());
-    bookGroup.position.sub(center);
-
-    scene.add(bookGroup);
-    applySize(DEFAULT_W, DEFAULT_H, DEFAULT_T);
-    applyColor(document.getElementById('colorPicker').value);
-
-    controls.style.display = 'block';
-    loading.style.display = 'none';
-  },
-  undefined,
-  (err) => { loading.textContent = 'Error: ' + err.message; }
-);
-
-// ── Dimension sliders ───────────────────────────────────────────────────────
-function onSlider() {
-  const w = parseFloat(sliders.w.value);
-  const h = parseFloat(sliders.h.value);
-  const t = parseFloat(sliders.t.value);
-  vals.w.textContent = w.toFixed(1);
-  vals.h.textContent = h.toFixed(1);
-  vals.t.textContent = t.toFixed(1);
-  applySize(w, h, t);
-}
-
-sliders.w.addEventListener('input', onSlider);
-sliders.h.addEventListener('input', onSlider);
-sliders.t.addEventListener('input', onSlider);
-
-document.getElementById('resetBtn').addEventListener('click', () => {
-  sliders.w.value = DEFAULT_W;
-  sliders.h.value = DEFAULT_H;
-  sliders.t.value = DEFAULT_T;
-  onSlider();
-  document.getElementById('colorPicker').value = '#9b7b5a';
-  applyColor('#9b7b5a');
-});
-
-const DEFAULT_COLOR = '#9b7b5a';
-
-function applyColor(hex) {
-  if (!coverMesh || !coverMesh.material) return;
-  coverMesh.material = coverMesh.material.clone();
-  coverMesh.material.color.set(hex);
-  coverMesh.material.needsUpdate = true;
-}
-
-document.getElementById('colorPicker').addEventListener('input', (e) => {
-  applyColor(e.target.value);
-});
-
-// ── Cover image import ──────────────────────────────────────────────────────
-const coverInput   = document.getElementById('coverInput');
-const coverBtn    = document.getElementById('coverBtn');
-const coverNameEl = document.getElementById('coverName');
-const coverPreview = document.getElementById('coverPreview');
-
-coverBtn.addEventListener('click', () => coverInput.click());
-
-coverInput.addEventListener('change', (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  coverNameEl.textContent = file.name;
-  coverPreview.src = URL.createObjectURL(file);
-  coverPreview.style.display = 'block';
-
-  const img = new Image();
-  img.onload = () => {
-    if (currentTexture) currentTexture.dispose();
-    currentTexture = new THREE.Texture(img);
-    currentTexture.colorSpace = THREE.SRGBColorSpace;
-    currentTexture.needsUpdate = true;
-
-    if (coverMesh && coverMesh.material) {
-      coverMesh.material = coverMesh.material.clone();
-      coverMesh.material.map = currentTexture;
-      coverMesh.material.needsUpdate = true;
-    }
+<script>
+  const tabs = document.querySelectorAll('.tab');
+  const frames = {
+    classicFrame: document.getElementById('classicFrame'),
+    noteFrame: document.getElementById('noteFrame'),
   };
-  img.src = URL.createObjectURL(file);
-});
 
-// ── Resize ──────────────────────────────────────────────────────────────────
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
-
-// ── Animate ─────────────────────────────────────────────────────────────────
-function animate() {
-  requestAnimationFrame(animate);
-  orbitControls.update();
-  renderer.render(scene, camera);
-}
-animate();
+  tabs.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const target = btn.dataset.frame;
+      tabs.forEach((t) => t.classList.toggle('active', t === btn));
+      Object.entries(frames).forEach(([id, iframe]) => {
+        const show = id === target;
+        iframe.classList.toggle('hidden', !show);
+        if (show && !iframe.src && iframe.dataset.src) {
+          iframe.src = iframe.dataset.src;
+        }
+      });
+    });
+  });
 </script>
 </body>
 </html>

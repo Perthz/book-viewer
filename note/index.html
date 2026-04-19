@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Note Book — 3D Viewer</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #f4f1ec; overflow: hidden; font-family: system-ui, sans-serif; }
+    #viewer { width: 100vw; height: 100vh; display: block; }
+    #loading {
+      position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+      background: #f4f1ec; color: #888; font-size: 1rem; z-index: 10;
+    }
+    #hint { position: fixed; bottom: 200px; left: 50%; transform: translateX(-50%); color: #bbb; font-size: 0.75rem; pointer-events: none; text-align: center; }
+    #controls {
+      position: fixed; top: 20px; right: 20px;
+      background: rgba(20, 20, 26, 0.88);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px; padding: 18px 20px;
+      color: #e0e0e0; font-size: 0.8rem;
+      width: 220px;
+      backdrop-filter: blur(12px);
+      z-index: 20; display: none;
+    }
+    #controls h3 { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #666; margin-bottom: 14px; font-weight: 500; }
+    .dim-row { margin-bottom: 12px; }
+    .dim-label { display: flex; justify-content: space-between; margin-bottom: 5px; }
+    .dim-label span:first-child { color: #aaa; }
+    .dim-label span:last-child { color: #fff; font-weight: 600; min-width: 60px; text-align: right; }
+    .dim-unit { color: #555; font-size: 0.7rem; margin-left: 2px; }
+    input[type="range"] { -webkit-appearance: none; width: 100%; height: 3px; background: rgba(255,255,255,0.1); border-radius: 2px; outline: none; }
+    input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; background: #6c8fff; border-radius: 50%; cursor: pointer; box-shadow: 0 0 8px rgba(108,143,255,0.5); }
+    .divider { border: none; border-top: 1px solid rgba(255,255,255,0.06); margin: 14px 0; }
+    .cover-row { margin-top: 14px; }
+    .cover-row label { display: block; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #666; margin-bottom: 6px; font-weight: 500; }
+    #coverInput { display: none; }
+    .cover-btn { display: flex; align-items: center; gap: 6px; width: 100%; padding: 7px 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #ccc; font-size: 0.75rem; cursor: pointer; transition: background 0.2s; }
+    .cover-btn:hover { background: rgba(255,255,255,0.1); }
+    .cover-btn svg { flex-shrink: 0; }
+    #coverName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #888; font-size: 0.7rem; }
+    #coverPreview { width: 100%; height: 60px; object-fit: cover; border-radius: 4px; margin-top: 8px; display: none; border: 1px solid rgba(255,255,255,0.08); }
+    #resetBtn { width: 100%; padding: 7px; background: rgba(108,143,255,0.15); border: 1px solid rgba(108,143,255,0.3); border-radius: 6px; color: #6c8fff; font-size: 0.75rem; cursor: pointer; transition: background 0.2s; }
+    #resetBtn:hover { background: rgba(108,143,255,0.25); }
+
+    .color-row { margin-top: 14px; }
+    .color-row label { display: block; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #666; margin-bottom: 6px; font-weight: 500; }
+    input[type="color"] { width: 100%; height: 36px; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; background: none; cursor: pointer; padding: 2px; }
+
+    #openBtn {
+      width: 100%; padding: 9px;
+      background: rgba(255, 160, 80, 0.18); border: 1px solid rgba(255, 160, 80, 0.35);
+      border-radius: 6px; color: #ffb060; font-size: 0.78rem;
+      cursor: pointer; transition: background 0.2s; font-weight: 500;
+    }
+    #openBtn:hover { background: rgba(255, 160, 80, 0.30); }
+    #openBtn.open { background: rgba(80, 220, 130, 0.15); border-color: rgba(80, 220, 130, 0.35); color: #50dc82; }
+
+    .anim-row { margin-top: 12px; }
+    .anim-label { display: flex; justify-content: space-between; margin-bottom: 5px; }
+    .anim-label span:first-child { color: #aaa; font-size: 0.72rem; }
+    .anim-label span:last-child { color: #fff; font-weight: 600; font-size: 0.72rem; }
+  </style>
+</head>
+<body>
+
+<div id="viewer"></div>
+<div id="loading">Loading model…</div>
+<div id="hint">Drag to rotate · Scroll to zoom · Right-drag to pan</div>
+
+<div id="controls">
+  <h3>Book Dimensions</h3>
+  <div class="dim-row">
+    <div class="dim-label"><span>Width</span><span><span id="wVal">14.0</span><span class="dim-unit">cm</span></span></div>
+    <input type="range" id="wSlider" min="5" max="50" step="0.5" value="14">
+  </div>
+  <div class="dim-row">
+    <div class="dim-label"><span>Height</span><span><span id="hVal">21.0</span><span class="dim-unit">cm</span></span></div>
+    <input type="range" id="hSlider" min="5" max="40" step="0.5" value="21">
+  </div>
+  <div class="dim-row">
+    <div class="dim-label"><span>Thickness</span><span><span id="tVal">1.0</span><span class="dim-unit">cm</span></span></div>
+    <input type="range" id="tSlider" min="0.3" max="5" step="0.1" value="1">
+  </div>
+  <hr class="divider">
+
+  <button id="openBtn">Open Book</button>
+
+  <div class="anim-row">
+    <div class="anim-label"><span>Open Amount</span><span><span id="openVal">0</span>%</span></div>
+    <input type="range" id="openSlider" min="0" max="100" step="1" value="0">
+  </div>
+
+  <hr class="divider">
+  <button id="resetBtn">Reset</button>
+
+  <div class="color-row">
+    <label>Book Color</label>
+    <input type="color" id="colorPicker" value="#5a7b5a">
+  </div>
+
+  <div class="cover-row">
+    <label>Cover Image</label>
+    <input type="file" id="coverInput" accept="image/*">
+    <button class="cover-btn" id="coverBtn">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+      </svg>
+      <span id="coverName">Choose image…</span>
+    </button>
+    <img id="coverPreview" alt="Cover preview">
+  </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+const container = document.getElementById('viewer');
+const loading  = document.getElementById('loading');
+const controls = document.getElementById('controls');
+
+const sliders = {
+  w: document.getElementById('wSlider'),
+  h: document.getElementById('hSlider'),
+  t: document.getElementById('tSlider'),
+};
+const vals = {
+  w: document.getElementById('wVal'),
+  h: document.getElementById('hVal'),
+  t: document.getElementById('tVal'),
+};
+const openSlider = document.getElementById('openSlider');
+const openVal    = document.getElementById('openVal');
+const openBtn    = document.getElementById('openBtn');
+
+// ── Renderer ──────────────────────────────────────────────────────────────
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
+container.appendChild(renderer.domElement);
+
+// ── Scene ───────────────────────────────────────────────────────────────────
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xf4f1ec);
+
+// ── Camera ──────────────────────────────────────────────────────────────────
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+camera.position.set(0, 2, 6);
+
+// ── Controls ─────────────────────────────────────────────────────────────────
+const orbitControls = new OrbitControls(camera, renderer.domElement);
+orbitControls.enableDamping = true;
+orbitControls.dampingFactor = 0.06;
+orbitControls.minDistance = 0.5;
+orbitControls.maxDistance = 50;
+orbitControls.target.set(0, 0, 0);
+
+// ── Lights ───────────────────────────────────────────────────────────────────
+const hemi = new THREE.HemisphereLight(0xfffdf5, 0xe8e4dc, 0.5);
+scene.add(hemi);
+
+const key = new THREE.DirectionalLight(0xfff8e8, 1.5);
+key.position.set(4, 8, 5);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.camera.left   = -8;
+key.shadow.camera.right  =  8;
+key.shadow.camera.top    =  6;
+key.shadow.camera.bottom = -6;
+key.shadow.camera.near   =  0.1;
+key.shadow.camera.far    = 25;
+key.shadow.bias          = -0.002;
+key.shadow.normalBias    =  0.5;
+key.shadow.radius        =  4;
+scene.add(key);
+
+const fill = new THREE.DirectionalLight(0xf0f4f8, 0.35);
+fill.position.set(-5, 3, 2);
+scene.add(fill);
+
+const rim = new THREE.DirectionalLight(0xffffff, 0.25);
+rim.position.set(0, 2, -4);
+scene.add(rim);
+
+// ── Shadow catcher ──────────────────────────────────────────────────────────
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(20, 20),
+  new THREE.ShadowMaterial({ opacity: 0.15 })
+);
+ground.rotation.x = -Math.PI / 2;
+ground.position.y = 0;
+ground.receiveShadow = true;
+scene.add(ground);
+
+// ── Book state ───────────────────────────────────────────────────────────────
+const DEFAULT_W = 14, DEFAULT_H = 21, DEFAULT_T = 1;
+const DEFAULT_COLOR = '#5a7b5a';
+
+let bookGroup  = null;
+let mixer     = null;
+let animAction = null;
+let animClip  = null;
+let coverMesh  = null;
+let currentTexture = null;
+let isOpen     = false;
+let animating  = false;
+let openAmount = 0; // 0 = closed, 1 = open
+
+function applySize(wCm, hCm, tCm) {
+  if (!bookGroup) return;
+  // Model axes: X = width, Y = thickness (page stack), Z = height (vertical)
+  const sx = wCm / 14;
+  const sy = tCm / 1;
+  const sz = hCm / 21;
+  bookGroup.scale.set(sx, sy, sz);
+}
+
+function setOpenAmount(t) {
+  if (!animAction) return;
+  openAmount = Math.max(0, Math.min(1, t));
+  animAction.time = openAmount * animDuration;
+  mixer.update(0);
+  openSlider.value = Math.round(openAmount * 100);
+  openVal.textContent = Math.round(openAmount * 100);
+  openBtn.textContent = isOpen ? 'Close Book' : 'Open Book';
+  openBtn.classList.toggle('open', openAmount > 0.05);
+}
+
+let animDuration = 0;
+
+function toggleOpen() {
+  if (animating) return;
+  isOpen = !isOpen;
+  const target = isOpen ? 1 : 0;
+  const start  = openAmount;
+  const dur    = 1.2; // seconds
+  let elapsed  = 0;
+  animating = true;
+
+  function step(dt) {
+    elapsed += dt;
+    let pct = Math.min(elapsed / dur, 1);
+    pct = 1 - Math.pow(1 - pct, 3); // ease-out cubic
+    setOpenAmount(start + (target - start) * pct);
+    if (pct < 1) {
+      requestAnimationFrame(step);
+    } else {
+      animating = false;
+    }
+  }
+  requestAnimationFrame(step);
+}
+
+openBtn.addEventListener('click', toggleOpen);
+openSlider.addEventListener('input', () => {
+  setOpenAmount(parseInt(openSlider.value) / 100);
+});
+
+// ── Load model ──────────────────────────────────────────────────────────────
+const loader = new GLTFLoader();
+loader.load(
+  './scene.gltf',
+  (gltf) => {
+    bookGroup = new THREE.Group();
+    scene.add(bookGroup);
+
+    gltf.scene.traverse((child) => {
+      if (child.isMesh) {
+        child.castShadow = true;
+        child.receiveShadow = false;
+      }
+    });
+    bookGroup.add(gltf.scene);
+
+    // Center
+    const box = new THREE.Box3().setFromObject(bookGroup);
+    const center = box.getCenter(new THREE.Vector3());
+    bookGroup.position.sub(center);
+
+    // Set up animation
+    if (gltf.animations.length > 0) {
+      mixer    = new THREE.AnimationMixer(bookGroup);
+      animClip = gltf.animations[0];
+      animAction = mixer.clipAction(animClip);
+      animDuration = animClip.duration;
+      animAction.play();
+      animAction.paused = true;
+      animAction.time = 0;
+    }
+
+    // Split the skinned mesh into two material groups: cover (kaft_* bones) and pages.
+    // Reorders the index buffer so cover triangles come first, then assigns [coverMat, pageMat].
+    let skinnedMesh = null;
+    gltf.scene.traverse((child) => { if (child.isSkinnedMesh && !skinnedMesh) skinnedMesh = child; });
+
+    if (skinnedMesh) {
+      const geom = skinnedMesh.geometry;
+      const bones = skinnedMesh.skeleton.bones;
+      const coverBoneSet = new Set(
+        bones.map((b, i) => {
+          const n = b.name.toLowerCase();
+          return (n.startsWith('kaft') || n.startsWith('stam')) ? i : -1;
+        }).filter(i => i >= 0)
+      );
+
+      const skinIndex  = geom.attributes.skinIndex.array;
+      const skinWeight = geom.attributes.skinWeight.array;
+      const index      = geom.index.array;
+
+      const isCoverVertex = (vi) => {
+        let coverW = 0;
+        for (let k = 0; k < 4; k++) {
+          const bi = skinIndex[vi * 4 + k];
+          const bw = skinWeight[vi * 4 + k];
+          if (coverBoneSet.has(bi)) coverW += bw;
+        }
+        return coverW > 0.85;
+      };
+
+      const coverTris = [];
+      const pageTris  = [];
+      for (let i = 0; i < index.length; i += 3) {
+        const a = index[i], b = index[i + 1], c = index[i + 2];
+        const allCover = isCoverVertex(a) && isCoverVertex(b) && isCoverVertex(c);
+        (allCover ? coverTris : pageTris).push(a, b, c);
+      }
+
+      const reordered = new (index.constructor)(coverTris.length + pageTris.length);
+      reordered.set(coverTris, 0);
+      reordered.set(pageTris, coverTris.length);
+      geom.setIndex(new THREE.BufferAttribute(reordered, 1));
+      geom.clearGroups();
+      geom.addGroup(0, coverTris.length, 0);
+      geom.addGroup(coverTris.length, pageTris.length, 1);
+
+      const originalMat = skinnedMesh.material;
+      const coverMat = originalMat.clone();
+      const pageMat  = originalMat.clone();
+      pageMat.color.set(0xf5f1e8);
+      pageMat.emissive?.set(0x6b6860);
+      pageMat.side = THREE.DoubleSide;
+      skinnedMesh.material = [coverMat, pageMat];
+      coverMesh = skinnedMesh;
+      coverMesh._coverMatIndex = 0;
+    }
+
+    applySize(DEFAULT_W, DEFAULT_H, DEFAULT_T);
+    applyColor(document.getElementById('colorPicker').value);
+
+    // Fit camera to book
+    const fitBox = new THREE.Box3().setFromObject(bookGroup);
+    const size   = fitBox.getSize(new THREE.Vector3());
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const dist   = maxDim / (2 * Math.tan((camera.fov * Math.PI / 180) / 2)) * 2.2;
+    camera.position.set(dist * 0.5, dist * 0.35, dist);
+    camera.lookAt(0, 0, 0);
+    orbitControls.target.set(0, 0, 0);
+    orbitControls.update();
+
+    controls.style.display = 'block';
+    loading.style.display = 'none';
+  },
+  undefined,
+  (err) => { loading.textContent = 'Error: ' + err.message; }
+);
+
+// ── Dimension sliders ───────────────────────────────────────────────────────
+function onSlider() {
+  const w = parseFloat(sliders.w.value);
+  const h = parseFloat(sliders.h.value);
+  const t = parseFloat(sliders.t.value);
+  vals.w.textContent = w.toFixed(1);
+  vals.h.textContent = h.toFixed(1);
+  vals.t.textContent = t.toFixed(1);
+  applySize(w, h, t);
+}
+
+sliders.w.addEventListener('input', onSlider);
+sliders.h.addEventListener('input', onSlider);
+sliders.t.addEventListener('input', onSlider);
+
+document.getElementById('resetBtn').addEventListener('click', () => {
+  sliders.w.value = DEFAULT_W;
+  sliders.h.value = DEFAULT_H;
+  sliders.t.value = DEFAULT_T;
+  onSlider();
+  document.getElementById('colorPicker').value = DEFAULT_COLOR;
+  applyColor(DEFAULT_COLOR);
+  setOpenAmount(0);
+  isOpen = false;
+  animating = false;
+});
+
+// ── Color ───────────────────────────────────────────────────────────────────
+function getCoverMat() {
+  if (!coverMesh) return null;
+  if (Array.isArray(coverMesh.material)) return coverMesh.material[coverMesh._coverMatIndex ?? 0];
+  return coverMesh.material;
+}
+function applyColor(hex) {
+  const mat = getCoverMat();
+  if (!mat) return;
+  mat.color.set(hex);
+  mat.needsUpdate = true;
+}
+
+document.getElementById('colorPicker').addEventListener('input', (e) => {
+  applyColor(e.target.value);
+});
+
+// ── Cover image ─────────────────────────────────────────────────────────────
+const coverInput   = document.getElementById('coverInput');
+const coverBtn     = document.getElementById('coverBtn');
+const coverNameEl  = document.getElementById('coverName');
+const coverPreview = document.getElementById('coverPreview');
+
+coverBtn.addEventListener('click', () => coverInput.click());
+
+coverInput.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  coverNameEl.textContent = file.name;
+  coverPreview.src = URL.createObjectURL(file);
+  coverPreview.style.display = 'block';
+
+  const img = new Image();
+  img.onload = () => {
+    if (currentTexture) currentTexture.dispose();
+    currentTexture = new THREE.Texture(img);
+    currentTexture.colorSpace = THREE.SRGBColorSpace;
+    currentTexture.needsUpdate = true;
+    const mat = getCoverMat();
+    if (mat) {
+      mat.map = currentTexture;
+      mat.needsUpdate = true;
+    }
+  };
+  img.src = URL.createObjectURL(file);
+});
+
+// ── Resize ──────────────────────────────────────────────────────────────────
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ── Animate ─────────────────────────────────────────────────────────────────
+const clock = new THREE.Clock();
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = clock.getDelta();
+  if (mixer) mixer.update(0); // times handled manually
+  orbitControls.update();
+  renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>
