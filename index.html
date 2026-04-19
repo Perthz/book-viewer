@@ -42,6 +42,10 @@
     #coverPreview { width: 100%; height: 60px; object-fit: cover; border-radius: 4px; margin-top: 8px; display: none; border: 1px solid rgba(255,255,255,0.08); }
     #resetBtn { width: 100%; padding: 7px; background: rgba(108,143,255,0.15); border: 1px solid rgba(108,143,255,0.3); border-radius: 6px; color: #6c8fff; font-size: 0.75rem; cursor: pointer; transition: background 0.2s; }
     #resetBtn:hover { background: rgba(108,143,255,0.25); }
+
+    .color-row { margin-top: 14px; }
+    .color-row label { display: block; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #666; margin-bottom: 6px; font-weight: 500; }
+    input[type="color"] { width: 100%; height: 36px; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; background: none; cursor: pointer; padding: 2px; }
   </style>
 </head>
 <body>
@@ -66,6 +70,12 @@
   </div>
   <hr class="divider">
   <button id="resetBtn">Reset to Default</button>
+
+  <div class="color-row">
+    <label>Book Color</label>
+    <input type="color" id="colorPicker" value="#9b7b5a">
+  </div>
+
   <div class="cover-row">
     <label>Cover Image</label>
     <input type="file" id="coverInput" accept="image/*">
@@ -240,6 +250,7 @@ loader.load(
 
     scene.add(bookGroup);
     applySize(DEFAULT_W, DEFAULT_H, DEFAULT_T);
+    applyColor(document.getElementById('colorPicker').value);
 
     controls.style.display = 'block';
     loading.style.display = 'none';
@@ -268,6 +279,21 @@ document.getElementById('resetBtn').addEventListener('click', () => {
   sliders.h.value = DEFAULT_H;
   sliders.t.value = DEFAULT_T;
   onSlider();
+  document.getElementById('colorPicker').value = '#9b7b5a';
+  applyColor('#9b7b5a');
+});
+
+const DEFAULT_COLOR = '#9b7b5a';
+
+function applyColor(hex) {
+  if (!coverMesh || !coverMesh.material) return;
+  coverMesh.material = coverMesh.material.clone();
+  coverMesh.material.color.set(hex);
+  coverMesh.material.needsUpdate = true;
+}
+
+document.getElementById('colorPicker').addEventListener('input', (e) => {
+  applyColor(e.target.value);
 });
 
 // ── Cover image import ──────────────────────────────────────────────────────
