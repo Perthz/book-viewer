@@ -46,6 +46,15 @@
     .color-row { margin-top: 14px; }
     .color-row label { display: block; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #666; margin-bottom: 6px; font-weight: 500; }
     input[type="color"] { width: 100%; height: 36px; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; background: none; cursor: pointer; padding: 2px; }
+
+    #openBtn {
+      width: 100%; padding: 9px;
+      background: rgba(255, 160, 80, 0.18); border: 1px solid rgba(255, 160, 80, 0.35);
+      border-radius: 6px; color: #ffb060; font-size: 0.78rem;
+      cursor: pointer; transition: background 0.2s; font-weight: 500;
+    }
+    #openBtn:hover { background: rgba(255, 160, 80, 0.30); }
+    #openBtn.open { background: rgba(80, 220, 130, 0.15); border-color: rgba(80, 220, 130, 0.35); color: #50dc82; }
   </style>
 </head>
 <body>
@@ -68,6 +77,15 @@
     <div class="dim-label"><span>Thickness</span><span><span id="tVal">2.0</span><span class="dim-unit">cm</span></span></div>
     <input type="range" id="tSlider" min="0.3" max="10" step="0.1" value="2">
   </div>
+  <hr class="divider">
+
+  <button id="openBtn">Open Book</button>
+
+  <div class="dim-row" style="margin-top: 12px;">
+    <div class="dim-label"><span>Open Amount</span><span><span id="openVal">0</span>%</span></div>
+    <input type="range" id="openSlider" min="0" max="100" step="1" value="0">
+  </div>
+
   <hr class="divider">
   <button id="resetBtn">Reset to Default</button>
 
@@ -190,7 +208,9 @@ const REF_H_CM = 21;
 const DEFAULT_W = 15, DEFAULT_H = 21, DEFAULT_T = 2;
 
 let bookGroup = null;
-let coverMesh = null;
+let coverMesh = null;       // the flipping front-cover mesh
+let shellStatic = null;     // spine + back cover (static)
+let coverPivot = null;
 let currentTexture = null;
 
 function applySize(wCm, hCm, tCm) {
@@ -209,23 +229,77 @@ loader.load(
   (gltf) => {
     bookGroup = new THREE.Group();
 
-    // Identify cover: mesh whose AABB has highest Z max (front face ≈ 0)
-    let coverZMax = -Infinity;
+    // Identify the shell mesh: AABB with highest Z max (front face ≈ 0).
+    let shellMesh = null;
+    let shellZMax = -Infinity;
 
     gltf.scene.traverse((child) => {
       if (child.isMesh) {
         child.castShadow = true;
         child.receiveShadow = true;
         const cloned = child.clone();
-        bookGroup.add(cloned);
-
         const box = new THREE.Box3().setFromObject(cloned);
-        if (box.max.z > coverZMax) {
-          coverZMax = box.max.z;
-          coverMesh = cloned;
+        if (box.max.z > shellZMax) {
+          shellZMax = box.max.z;
+          shellMesh = cloned;
+        } else {
+          bookGroup.add(cloned);
         }
       }
     });
+
+    // Split the shell geometry: front board (top ~15% of Z) flips, spine+back stays.
+    if (shellMesh) {
+      const geom = shellMesh.geometry;
+      geom.computeBoundingBox();
+      const zMax = geom.boundingBox.max.z;
+      const zMin = geom.boundingBox.min.z;
+      // Keep threshold tight: only triangles wholly above it are "front board".
+      // Spine triangles always have at least one vertex dipping to low z, so
+      // they fall into "rest" and the seam follows the existing hinge edge loop.
+      const zThresh = zMax - (zMax - zMin) * 0.18;
+
+      const pos = geom.attributes.position;
+      const idx = geom.index;
+      const triCount = idx ? idx.count / 3 : pos.count / 3;
+      const front = [], rest = [];
+      for (let t = 0; t < triCount; t++) {
+        const i0 = idx ? idx.getX(t*3)     : t*3;
+        const i1 = idx ? idx.getX(t*3 + 1) : t*3 + 1;
+        const i2 = idx ? idx.getX(t*3 + 2) : t*3 + 2;
+        const z0 = pos.getZ(i0), z1 = pos.getZ(i1), z2 = pos.getZ(i2);
+        const allFront = z0 > zThresh && z1 > zThresh && z2 > zThresh;
+        const bucket = allFront ? front : rest;
+        bucket.push(i0, i1, i2);
+      }
+
+      const frontGeom = geom.clone();
+      frontGeom.setIndex(front);
+      const restGeom = geom.clone();
+      restGeom.setIndex(rest);
+
+      // Shared cloneable material (so applyColor can update both parts).
+      const mat = shellMesh.material.clone();
+      mat.side = THREE.DoubleSide;
+
+      coverMesh = new THREE.Mesh(frontGeom, mat);
+      coverMesh.castShadow = true;
+      coverMesh.receiveShadow = true;
+
+      shellStatic = new THREE.Mesh(restGeom, mat);
+      shellStatic.castShadow = true;
+      shellStatic.receiveShadow = true;
+      bookGroup.add(shellStatic);
+
+      // Pivot at the front-corner of the spine (inner edge of the front board).
+      const coverBox = new THREE.Box3().setFromObject(coverMesh);
+      const spineX = coverBox.min.x;
+      coverPivot = new THREE.Group();
+      coverPivot.position.x = spineX;
+      bookGroup.add(coverPivot);
+      coverMesh.position.x -= spineX;
+      coverPivot.add(coverMesh);
+    }
 
     const box = new THREE.Box3().setFromObject(bookGroup);
     const center = box.getCenter(new THREE.Vector3());
@@ -257,6 +331,51 @@ sliders.w.addEventListener('input', onSlider);
 sliders.h.addEventListener('input', onSlider);
 sliders.t.addEventListener('input', onSlider);
 
+// ── Open/close animation ────────────────────────────────────────────────────
+const openSlider = document.getElementById('openSlider');
+const openVal    = document.getElementById('openVal');
+const openBtn    = document.getElementById('openBtn');
+
+const MAX_OPEN_RAD = Math.PI; // ~171°
+let openAmount = 0;
+let isOpen = false;
+let animating = false;
+
+function setOpenAmount(t) {
+  openAmount = Math.max(0, Math.min(1, t));
+  if (coverPivot) coverPivot.rotation.y = -openAmount * MAX_OPEN_RAD;
+  openSlider.value = Math.round(openAmount * 100);
+  openVal.textContent = Math.round(openAmount * 100);
+  openBtn.textContent = openAmount > 0.5 ? 'Close Book' : 'Open Book';
+  openBtn.classList.toggle('open', openAmount > 0.05);
+}
+
+openBtn.addEventListener('click', () => {
+  if (animating) return;
+  isOpen = !isOpen;
+  const target = isOpen ? 1 : 0;
+  const start  = openAmount;
+  const dur    = 1.2;
+  let elapsed  = 0;
+  let last     = performance.now();
+  animating = true;
+  function step(now) {
+    const dt = (now - last) / 1000; last = now;
+    elapsed += dt;
+    let pct = Math.min(elapsed / dur, 1);
+    pct = 1 - Math.pow(1 - pct, 3);
+    setOpenAmount(start + (target - start) * pct);
+    if (pct < 1) requestAnimationFrame(step);
+    else animating = false;
+  }
+  requestAnimationFrame(step);
+});
+
+openSlider.addEventListener('input', () => {
+  setOpenAmount(parseInt(openSlider.value) / 100);
+  isOpen = openAmount > 0.5;
+});
+
 document.getElementById('resetBtn').addEventListener('click', () => {
   sliders.w.value = DEFAULT_W;
   sliders.h.value = DEFAULT_H;
@@ -264,15 +383,22 @@ document.getElementById('resetBtn').addEventListener('click', () => {
   onSlider();
   document.getElementById('colorPicker').value = '#9b7b5a';
   applyColor('#9b7b5a');
+  setOpenAmount(0);
+  isOpen = false;
+  animating = false;
 });
 
 const DEFAULT_COLOR = '#9b7b5a';
 
 function applyColor(hex) {
   if (!coverMesh || !coverMesh.material) return;
-  coverMesh.material = coverMesh.material.clone();
-  coverMesh.material.color.set(hex);
-  coverMesh.material.needsUpdate = true;
+  const newMat = coverMesh.material.clone();
+  newMat.color.set(hex);
+  newMat.side = THREE.DoubleSide;
+  newMat.map = currentTexture || newMat.map;
+  newMat.needsUpdate = true;
+  coverMesh.material = newMat;
+  if (shellStatic) shellStatic.material = newMat;
 }
 
 document.getElementById('colorPicker').addEventListener('input', (e) => {
@@ -302,9 +428,11 @@ coverInput.addEventListener('change', (e) => {
     currentTexture.needsUpdate = true;
 
     if (coverMesh && coverMesh.material) {
-      coverMesh.material = coverMesh.material.clone();
-      coverMesh.material.map = currentTexture;
-      coverMesh.material.needsUpdate = true;
+      const newMat = coverMesh.material.clone();
+      newMat.map = currentTexture;
+      newMat.needsUpdate = true;
+      coverMesh.material = newMat;
+      if (shellStatic) shellStatic.material = newMat;
     }
   };
   img.src = URL.createObjectURL(file);
