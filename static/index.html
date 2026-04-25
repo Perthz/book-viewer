@@ -654,6 +654,7 @@ const TEX_W = 2048, TEX_H = 2048;
 let coverDesignerActiveZone = 'front';
 let texCanvas = null;       // 2048×2048 offscreen canvas
 let texCtx = null;
+let texOriginal = null;     // cached original Image for fast resets
 let bookMesh = null;
 let pagesMesh = null;
 let bookMaterial = null;
@@ -671,12 +672,20 @@ function zonePixels(zone) {
   };
 }
 
-// Load the original baseColor texture as a canvas
+// Load the original baseColor texture as a canvas (cached after first load)
 function loadOriginalTexture() {
   return new Promise((resolve) => {
+    if (texOriginal) {
+      // Reset from cached image without network request
+      texCtx.clearRect(0, 0, TEX_W, TEX_H);
+      texCtx.drawImage(texOriginal, 0, 0);
+      resolve();
+      return;
+    }
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
+      texOriginal = img; // cache for subsequent resets
       texCanvas = document.createElement('canvas');
       texCanvas.width = TEX_W;
       texCanvas.height = TEX_H;
@@ -685,7 +694,7 @@ function loadOriginalTexture() {
       resolve();
     };
     img.onerror = () => {
-      // Fallback: blank canvas
+      texOriginal = null;
       texCanvas = document.createElement('canvas');
       texCanvas.width = TEX_W;
       texCanvas.height = TEX_H;
