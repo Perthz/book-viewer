@@ -78,13 +78,6 @@
     .cp-color-wrap { display: flex; align-items: center; gap: 8px; }
     .cp-color-wrap input[type="color"] { width: 36px; height: 32px; border: none; background: none; cursor: pointer; border-radius: 4px; padding: 0; }
     .cp-color-wrap span { color: #888; font-size: 0.72rem; }
-    .cp-zone-btns { display: flex; gap: 6px; margin-bottom: 12px; }
-    .cp-zone-btn {
-      flex: 1; padding: 7px 4px;
-      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 6px; color: #aaa; font-size: 0.72rem; cursor: pointer;
-    }
-    .cp-zone-btn.active { background: rgba(200,100,255,0.2); border-color: rgba(200,100,255,0.5); color: #c864ff; }
     #cpPreview { width: 100%; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 12px; display: block; image-rendering: pixelated; }
     .cp-actions { display: flex; gap: 8px; margin-top: 16px; }
     .cp-apply { flex: 1; padding: 9px; background: rgba(200,100,255,0.2); border: 1px solid rgba(200,100,255,0.4); border-radius: 6px; color: #c864ff; font-size: 0.78rem; cursor: pointer; }
@@ -153,14 +146,7 @@
   <h2>Cover Designer</h2>
 
   <!-- Texture Preview -->
-  <canvas id="cpPreview" width="400" height="600"></canvas>
-
-  <!-- Cover Part Selector -->
-  <div class="cp-zone-btns">
-    <button class="cp-zone-btn active" data-zone="front">Front</button>
-    <button class="cp-zone-btn" data-zone="spine">Spine</button>
-    <button class="cp-zone-btn" data-zone="back">Back</button>
-  </div>
+  <canvas id="cpPreview" width="400" height="300"></canvas>
 
   <!-- Text Fields -->
   <div class="cp-row">
@@ -638,20 +624,27 @@ animate();
 // ═══════════════════════════════════════════════════════════════════════════════
 // ── Cover Designer ───────────────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════════
+//
+// The book's UV map uses a SINGLE region for all parts:
+//   UV: u[0.0023, 0.6839], v[0.1083, 1.0]
+//   Pixels: x[4, 1400], y[0, 1826] on the 2048×2048 texture
+//
+// There are no separate front/spine/back UV zones — the texture is a single
+// painted artwork. The cover designer works by:
+//   1. Filling the entire UV region with a solid cover color
+//   2. Drawing title/subtitle/author as centered text overlays
+//   3. Letting users choose a texture tint color blended over the artwork
+//
+// Paper color applies separately to the pages mesh material.
 
-// Cover zone UV bounds (from glTF analysis):
-//   Front: u[0.01–0.68], v[0.11–1.0]
-//   Spine: u[0.68–0.73], v[0.11–1.0]
-//   Back:  u[0.73–0.99], v[0.11–1.0]
-const ZONE_UV = {
-  front: { uMin: 0.01, uMax: 0.68, vMin: 0.11, vMax: 1.00 },
-  spine: { uMin: 0.68, uMax: 0.73, vMin: 0.11, vMax: 1.00 },
-  back:  { uMin: 0.73, uMax: 0.99, vMin: 0.11, vMax: 1.00 },
-};
 const TEX_W = 2048, TEX_H = 2048;
+// The usable UV region in pixel coordinates
+const TEX_X0 = 4, TEX_X1 = 1400;  // u range → x pixel range
+const TEX_Y0 = 0,   TEX_Y1 = 1826;  // v range → y pixel range
+const TEX_REG_W = TEX_X1 - TEX_X0;  // 1396px
+const TEX_REG_H = TEX_Y1 - TEX_Y0;  // 1826px
 
 // State
-let coverDesignerActiveZone = 'front';
 let texCanvas = null;       // 2048×2048 offscreen canvas
 let texCtx = null;
 let texOriginal = null;     // cached original Image for fast resets
@@ -661,22 +654,10 @@ let bookMaterial = null;
 let pagesMaterial = null;
 let coverDesignerReady = false;
 
-// Zone canvas-pixel bounds
-function zonePixels(zone) {
-  const z = ZONE_UV[zone];
-  return {
-    x: Math.round(z.uMin * TEX_W),
-    y: Math.round((1 - z.vMax) * TEX_H),
-    w: Math.round((z.uMax - z.uMin) * TEX_W),
-    h: Math.round((z.vMax - z.vMin) * TEX_H),
-  };
-}
-
-// Load the original baseColor texture as a canvas (cached after first load)
+// Reload original texture (from cached image to avoid re-fetching)
 function loadOriginalTexture() {
   return new Promise((resolve) => {
     if (texOriginal) {
-      // Reset from cached image without network request
       texCtx.clearRect(0, 0, TEX_W, TEX_H);
       texCtx.drawImage(texOriginal, 0, 0);
       resolve();
@@ -685,7 +666,7 @@ function loadOriginalTexture() {
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
-      texOriginal = img; // cache for subsequent resets
+      texOriginal = img;
       texCanvas = document.createElement('canvas');
       texCanvas.width = TEX_W;
       texCanvas.height = TEX_H;
@@ -705,14 +686,13 @@ function loadOriginalTexture() {
   });
 }
 
-// Clear a zone to a solid color on the texture canvas
-function clearZone(zone, hexColor) {
-  const px = zonePixels(zone);
+// Fill the cover region with a solid color
+function fillCoverRegion(hexColor) {
   texCtx.fillStyle = hexColor;
-  texCtx.fillRect(px.x, px.y, px.w, px.h);
+  texCtx.fillRect(TEX_X0, TEX_Y0, TEX_REG_W, TEX_REG_H);
 }
 
-// Wrap long text onto lines
+// Wrap long text onto lines given a max width
 function wrapText(ctx, text, maxWidth) {
   const words = text.split(' ');
   const lines = [];
@@ -730,67 +710,68 @@ function wrapText(ctx, text, maxWidth) {
   return lines;
 }
 
-// Draw text into a zone centered vertically
-function drawTextInZone(zone, title, subtitle, author, fontSize, textColor) {
-  if (!texCtx || (!title && !subtitle && !author)) return;
-  const px = zonePixels(zone);
-  const cx = px.x + px.w / 2; // center x of zone
-  const zoneW = px.w;
+// Draw title, subtitle, author centered in the cover region
+function drawCoverText(title, subtitle, author, fontSize, textColor) {
+  if (!texCtx) return;
+  const cx = TEX_X0 + TEX_REG_W / 2;   // center x of cover region
+  const cy = TEX_Y0 + TEX_REG_H / 2;   // center y of cover region
+  const maxW = TEX_REG_W * 0.85;
 
   texCtx.save();
+  texCtx.fillStyle = textColor;
   texCtx.textAlign = 'center';
   texCtx.textBaseline = 'middle';
 
-  const effectiveFontSize = Math.min(fontSize, px.h * 0.18);
-  const lineHeight = effectiveFontSize * 1.35;
-  const hasTitle = !!title.trim();
-  const hasSub   = !!subtitle.trim();
-  const hasAuth  = !!author.trim();
-  const totalLines = (hasTitle ? 1 : 0) + (hasSub ? 1 : 0) + (hasAuth ? 1 : 0);
-  if (totalLines === 0) { texCtx.restore(); return; }
+  const hasTitle  = !!title.trim();
+  const hasSub    = !!subtitle.trim();
+  const hasAuthor = !!author.trim();
+  const totalItems = (hasTitle ? 1 : 0) + (hasSub ? 1 : 0) + (hasAuthor ? 1 : 0);
+  if (totalItems === 0) { texCtx.restore(); return; }
 
-  // Starting y: center the block vertically in the zone
-  const totalH = totalLines * lineHeight;
-  let y = px.y + px.h / 2 - totalH / 2 + lineHeight / 2;
+  const titleSize   = Math.min(fontSize, TEX_REG_H * 0.14);
+  const subSize     = titleSize * 0.62;
+  const authorSize  = titleSize * 0.55;
+  const lineGap     = titleSize * 1.3;
+
+  // Compute total block height
+  let blockH = 0;
+  if (hasTitle)  blockH += titleSize;
+  if (hasSub)    blockH += subSize;
+  if (hasAuthor) blockH += authorSize;
+  if (hasTitle && (hasSub || hasAuthor)) blockH += lineGap * 0.5;
+  if (hasSub && hasAuthor) blockH += lineGap * 0.3;
+
+  let y = cy - blockH / 2 + titleSize / 2;
 
   if (hasTitle) {
-    texCtx.font = `bold ${effectiveFontSize}px Georgia, serif`;
-    texCtx.fillStyle = textColor;
-    const lines = wrapText(texCtx, title.trim(), zoneW * 0.9);
-    lines.forEach((l, i) => {
-      texCtx.fillText(l, cx, y + i * lineHeight);
-    });
-    y += lines.length * lineHeight;
+    texCtx.font = `bold ${titleSize}px Georgia, serif`;
+    const lines = wrapText(texCtx, title.trim(), maxW);
+    lines.forEach((l, i) => texCtx.fillText(l, cx, y + i * lineGap));
+    y += lines.length * lineGap + lineGap * 0.3;
   }
 
   if (hasSub) {
-    texCtx.font = `${effectiveFontSize * 0.65}px Georgia, serif`;
-    texCtx.fillStyle = textColor;
-    texCtx.globalAlpha = 0.85;
-    const lines = wrapText(texCtx, subtitle.trim(), zoneW * 0.9);
-    lines.forEach((l, i) => {
-      texCtx.fillText(l, cx, y + i * lineHeight);
-    });
-    texCtx.globalAlpha = 1.0;
-    y += lines.length * lineHeight;
+    texCtx.font = `${subSize}px Georgia, serif`;
+    texCtx.globalAlpha = 0.82;
+    const lines = wrapText(texCtx, subtitle.trim(), maxW);
+    lines.forEach((l, i) => texCtx.fillText(l, cx, y + i * lineGap * 0.85));
+    texCtx.globalAlpha = 1;
+    y += lines.length * lineGap * 0.85 + lineGap * 0.2;
   }
 
-  if (hasAuth) {
-    texCtx.font = `italic ${effectiveFontSize * 0.6}px Georgia, serif`;
-    texCtx.fillStyle = textColor;
-    texCtx.globalAlpha = 0.8;
-    const lines = wrapText(texCtx, author.trim(), zoneW * 0.9);
-    lines.forEach((l, i) => {
-      texCtx.fillText(l, cx, y + i * lineHeight);
-    });
-    texCtx.globalAlpha = 1.0;
+  if (hasAuthor) {
+    texCtx.font = `italic ${authorSize}px Georgia, serif`;
+    texCtx.globalAlpha = 0.75;
+    const lines = wrapText(texCtx, author.trim(), maxW);
+    lines.forEach((l, i) => texCtx.fillText(l, cx, y + i * lineGap * 0.75));
+    texCtx.globalAlpha = 1;
   }
 
   texCtx.restore();
 }
 
-// Apply tint overlay on entire texture
-function applyTint(hexColor) {
+// Apply tint by multiply-blending a color over the whole texture
+function applyTextureTint(hexColor) {
   if (!hexColor || hexColor === '#FFFFFF') return;
   texCtx.save();
   texCtx.globalCompositeOperation = 'multiply';
@@ -799,35 +780,26 @@ function applyTint(hexColor) {
   texCtx.restore();
 }
 
-// Render the preview thumbnail in the panel
+// Render the preview in the panel
 function renderPreview() {
   const preview = document.getElementById('cpPreview');
   if (!preview || !texCanvas) return;
   const pctx = preview.getContext('2d');
-  const zone = ZONE_UV[coverDesignerActiveZone];
-  // Show the full texture with a highlight border around the active zone
   pctx.clearRect(0, 0, preview.width, preview.height);
+  // Scale the full 2048 texture to fit preview width
+  pctx.drawImage(texCanvas, 0, 0, preview.width, preview.height * (preview.width / TEX_W));
 
-  // Draw scaled full texture
-  pctx.drawImage(texCanvas, 0, 0, preview.width, preview.height);
-
-  // Draw highlight box around active zone
-  const sx = zone.uMin * preview.width;
-  const sy = (1 - zone.vMax) * preview.height;
-  const sw = (zone.uMax - zone.uMin) * preview.width;
-  const sh = (zone.vMax - zone.vMin) * preview.height;
+  // Draw a border around the cover region
+  const sx = TEX_X0 / TEX_W * preview.width;
+  const sy = TEX_Y0 / TEX_H * preview.height * (preview.width / TEX_W);
+  const sw = TEX_REG_W / TEX_W * preview.width;
+  const sh = TEX_REG_H / TEX_H * preview.height * (preview.width / TEX_W);
   pctx.strokeStyle = '#c864ff';
   pctx.lineWidth = 2;
   pctx.strokeRect(sx, sy, sw, sh);
-
-  // Label
-  pctx.fillStyle = '#c864ff';
-  pctx.font = 'bold 11px system-ui';
-  pctx.textAlign = 'left';
-  pctx.fillText(coverDesignerActiveZone.toUpperCase() + ' ZONE', sx + 4, sy + 14);
 }
 
-// Upload the texture canvas to the Three.js material
+// Upload the canvas as the book's texture
 function applyTextureToBook() {
   if (!bookMaterial || !texCanvas) return;
   const newTex = new THREE.CanvasTexture(texCanvas);
@@ -841,8 +813,7 @@ function applyTextureToBook() {
 // Apply paper color to the pages mesh
 function applyPaperColor(hexColor) {
   if (!pagesMaterial) return;
-  const col = new THREE.Color(hexColor);
-  pagesMaterial.color.set(col);
+  pagesMaterial.color.set(new THREE.Color(hexColor));
   pagesMaterial.needsUpdate = true;
 }
 
@@ -864,46 +835,37 @@ document.getElementById('cpClose').addEventListener('click', () => {
   document.getElementById('coverPanel').style.display = 'none';
 });
 
-// Zone buttons
-document.querySelectorAll('.cp-zone-btn').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.cp-zone-btn').forEach((b) => b.classList.remove('active'));
-    btn.classList.add('active');
-    coverDesignerActiveZone = btn.dataset.zone;
-    renderPreview();
-  });
-});
-
-// Live preview as user types / changes settings (no apply needed)
+// Rebuild full texture from settings and show live preview
 function liveUpdate() {
   if (!coverDesignerReady) return;
-
-  const title    = document.getElementById('cpTitle').value;
-  const subtitle = document.getElementById('cpSubtitle').value;
-  const author   = document.getElementById('cpAuthor').value;
-  const fontSize = parseInt(document.getElementById('cpFontSize').value);
+  const title     = document.getElementById('cpTitle').value;
+  const subtitle  = document.getElementById('cpSubtitle').value;
+  const author    = document.getElementById('cpAuthor').value;
+  const fontSize  = parseInt(document.getElementById('cpFontSize').value);
   const textColor = document.getElementById('cpTextColor').value;
-  const coverColor = document.getElementById('cpCoverColor').value;
-  const tintColor  = document.getElementById('cpTintColor').value;
+  const coverColor= document.getElementById('cpCoverColor').value;
+  const tintColor = document.getElementById('cpTintColor').value;
 
-  // Reload original texture first
-  loadOriginalTexture().then(() => {
-    // Apply tint on top of original
-    if (tintColor !== '#FFFFFF') {
-      texCtx.save();
-      texCtx.globalCompositeOperation = 'multiply';
-      texCtx.fillStyle = tintColor;
-      texCtx.fillRect(0, 0, TEX_W, TEX_H);
-      texCtx.restore();
-    }
-    // Draw on all zones
-    const zones = ['front', 'spine', 'back'];
-    zones.forEach((z) => {
-      clearZone(z, coverColor);
-    });
-    drawTextInZone(coverDesignerActiveZone, title, subtitle, author, fontSize, textColor);
-    renderPreview();
-  });
+  // Reset from original texture
+  texCtx.clearRect(0, 0, TEX_W, TEX_H);
+  texCtx.drawImage(texOriginal, 0, 0);
+
+  // Apply tint over full texture
+  if (tintColor !== '#FFFFFF') {
+    texCtx.save();
+    texCtx.globalCompositeOperation = 'multiply';
+    texCtx.fillStyle = tintColor;
+    texCtx.fillRect(0, 0, TEX_W, TEX_H);
+    texCtx.restore();
+  }
+
+  // Fill cover region with solid color (overwrites texture in that area)
+  fillCoverRegion(coverColor);
+
+  // Draw text on top
+  drawCoverText(title, subtitle, author, fontSize, textColor);
+
+  renderPreview();
 }
 
 // Wire live update events
@@ -914,13 +876,12 @@ document.getElementById('cpFontSize').addEventListener('input', () => {
   document.getElementById('cpFontSizeVal').textContent = document.getElementById('cpFontSize').value + 'px';
   liveUpdate();
 });
-document.getElementById('cpTextColor').addEventListener('input', () => {
-  document.getElementById('cpTextColorHex').textContent = document.getElementById('cpTextColor').value;
-  liveUpdate();
-});
-document.getElementById('cpCoverColor').addEventListener('input', () => {
-  document.getElementById('cpCoverColorHex').textContent = document.getElementById('cpCoverColor').value;
-  liveUpdate();
+['cpTextColor', 'cpCoverColor'].forEach((id) => {
+  document.getElementById(id).addEventListener('input', () => {
+    const hex = document.getElementById(id).value;
+    document.getElementById(id + 'Hex').textContent = hex;
+    liveUpdate();
+  });
 });
 document.getElementById('cpTintColor').addEventListener('input', () => {
   const v = document.getElementById('cpTintColor').value;
@@ -928,11 +889,12 @@ document.getElementById('cpTintColor').addEventListener('input', () => {
   liveUpdate();
 });
 document.getElementById('cpPaperColor').addEventListener('input', () => {
-  document.getElementById('cpPaperColorHex').textContent = document.getElementById('cpPaperColor').value;
-  applyPaperColor(document.getElementById('cpPaperColor').value);
+  const hex = document.getElementById('cpPaperColor').value;
+  document.getElementById('cpPaperColorHex').textContent = hex;
+  applyPaperColor(hex);
 });
 
-// Apply button: actually upload texture to the 3D book
+// Apply button — upload texture to the 3D book
 document.getElementById('cpApply').addEventListener('click', () => {
   if (!coverDesignerReady) return;
   applyTextureToBook();
