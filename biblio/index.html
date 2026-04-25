@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Biblio Books — Preview</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #f4f1ec; overflow: hidden; font-family: system-ui, sans-serif; }
+    #viewer { width: 100vw; height: 100vh; display: block; }
+    #hint { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); color: #aaa; font-size: 0.72rem; pointer-events: none; }
+    #legend {
+      position: fixed; top: 80px; right: 20px;
+      background: rgba(20, 20, 26, 0.85);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px; padding: 12px 14px;
+      color: #ddd; font-size: 0.72rem; line-height: 1.6;
+      backdrop-filter: blur(12px); z-index: 20;
+    }
+    #legend b { color: #fff; }
+    #legend .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+  </style>
+</head>
+<body>
+<div id="viewer"></div>
+<div id="legend">
+  <div><b>Biblio book models</b></div>
+  <div style="margin-top:6px;"><span class="sw" style="background:#A8BEB1"></span>Softcover (≤200 pages)</div>
+  <div><span class="sw" style="background:#9BB5CE"></span>Hardcover (>200 pages)</div>
+  <div style="margin-top:6px; color:#999;">Cloth case · spine board · hinge notch · page block</div>
+</div>
+<div id="hint">Drag to rotate · Scroll to zoom</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ── Biblio light theme ─────────────────────────────────────────────────────
+const THEME = {
+  background: 0xf4f1ec,
+  fog: { color: 0xf4f1ec, near: 8, far: 22 },
+  ambient: { top: 0xfffdf5, bottom: 0xe8e4dc, intensity: 0.5 },
+  keyLight: { color: 0xfff8e8, intensity: 1.5, pos: [4, 8, 5] },
+  fillLight: { color: 0xf0f4f8, intensity: 0.35, pos: [-5, 3, 2] },
+  rimLight: { color: 0xffffff, intensity: 0.25, pos: [0, 2, -4] },
+  exposure: 1.15,
+  pageColor: '#F5EEDD',
+};
+
+// Sample of biblio book color palette
+const PALETTE = [
+  { color: '#A8BEB1', spine: '#7A9080', accent: '#CFDFD3' },
+  { color: '#9BB5CE', spine: '#6B8CAE', accent: '#C6DAE8' },
+  { color: '#E3C0A0', spine: '#C89B7B', accent: '#F2DCC5' },
+  { color: '#C9A0A0', spine: '#A87878', accent: '#E3C4C4' },
+];
+
+// Biblio uses meters; 1 unit = 1 m. We'll work in those units too.
+const CM = 0.01;
+
+// ── Renderer ────────────────────────────────────────────────────────────────
+const container = document.getElementById('viewer');
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMappingExposure = THEME.exposure;
+container.appendChild(renderer.domElement);
+
+// ── Scene ───────────────────────────────────────────────────────────────────
+const scene = new THREE.Scene();
+scene.background = makeGradientTexture(THEME.background, 0xebe6dd);
+scene.fog = new THREE.Fog(THEME.fog.color, THEME.fog.near, THEME.fog.far);
+
+function makeGradientTexture(top, bottom) {
+  const c = document.createElement('canvas');
+  c.width = 2; c.height = 256;
+  const ctx = c.getContext('2d');
+  const g = ctx.createLinearGradient(0, 0, 0, 256);
+  const hex = (n) => '#' + n.toString(16).padStart(6, '0');
+  g.addColorStop(0, hex(top));
+  g.addColorStop(0.55, hex(top));
+  g.addColorStop(1, hex(bottom));
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 2, 256);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+// ── Camera + controls ──────────────────────────────────────────────────────
+const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.05, 50);
+camera.position.set(-0.35, 0.18, 0.55);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.minDistance = 0.1;
+controls.maxDistance = 3;
+controls.target.set(0, 0.05, 0);
+
+// ── Lights ─────────────────────────────────────────────────────────────────
+scene.add(new THREE.HemisphereLight(THEME.ambient.top, THEME.ambient.bottom, THEME.ambient.intensity));
+const key = new THREE.DirectionalLight(THEME.keyLight.color, THEME.keyLight.intensity);
+key.position.set(...THEME.keyLight.pos); scene.add(key);
+const fill = new THREE.DirectionalLight(THEME.fillLight.color, THEME.fillLight.intensity);
+fill.position.set(...THEME.fillLight.pos); scene.add(fill);
+const rim = new THREE.DirectionalLight(THEME.rimLight.color, THEME.rimLight.intensity);
+rim.position.set(...THEME.rimLight.pos); scene.add(rim);
+
+// ── Page edge texture (thin striations along the paper stack) ──────────────
+function makePageEdgeTexture() {
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 16;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = THEME.pageColor;
+  ctx.fillRect(0, 0, 256, 16);
+  for (let i = 0; i < 256; i++) {
+    const a = 0.04 + Math.random() * 0.10;
+    ctx.fillStyle = `rgba(120, 100, 70, ${a})`;
+    ctx.fillRect(i, 0, 1, 16);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = THREE.RepeatWrapping;
+  t.wrapT = THREE.RepeatWrapping;
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+const pageEdgeTex = makePageEdgeTexture();
+
+// ── Softcover (port of biblio BookModel.buildSoftcover) ────────────────────
+function buildSoftcover(widthCm, heightCm, thicknessCm, palette) {
+  const w = widthCm * CM;
+  const h = heightCm * CM;
+  const t = thicknessCm * CM;
+  const group = new THREE.Group();
+
+  const foreEdgeOverhang = 0.004;
+  const topOverhang = 0.003;
+  const depthInset = 0.0015;
+  const pageW = w - foreEdgeOverhang - 0.001;
+  const pageH = h - topOverhang * 2;
+  const pageD = Math.max(t * 0.75, t - depthInset * 2);
+
+  const pageEdgeMat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(THEME.pageColor),
+    roughness: 0.95, metalness: 0, map: pageEdgeTex,
+  });
+  const pageInnerMat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(THEME.pageColor),
+    roughness: 0.92, metalness: 0,
+  });
+  const pages = new THREE.Mesh(
+    new THREE.BoxGeometry(pageW, pageH, pageD),
+    [pageEdgeMat, pageInnerMat, pageEdgeMat, pageEdgeMat, pageInnerMat, pageInnerMat],
+  );
+  pages.position.set((w - pageW) / 2 - 0.0005, 0, 0);
+  group.add(pages);
+
+  // Cover box — solid color (skipping per-face title canvas textures).
+  const coverMat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(palette.color),
+    roughness: 0.55, metalness: 0.02,
+  });
+  const spineMat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(palette.spine),
+    roughness: 0.5, metalness: 0.03,
+  });
+  // Face order: +X fore, -X spine, +Y top, -Y bottom, +Z front, -Z back
+  const cover = new THREE.Mesh(
+    new THREE.BoxGeometry(w, h, t),
+    [coverMat, spineMat, coverMat, coverMat, coverMat, coverMat],
+  );
+  group.add(cover);
+  return group;
+}
+
+// ── Hardcover (port of biblio HardcoverBookModel.buildHardcoverBook) ───────
+const BOOK_W_PROTO = 0.85;
+const BOOK_H_PROTO = 1.25;
+const COVER_THICKNESS_PROTO = 0.012;
+const SPINE_WIDTH_PROTO = 0.018;
+const HINGE_NOTCH_PROTO = 0.006;
+
+function buildHardcover(widthCm, heightCm, thicknessCm, palette) {
+  const W = widthCm * CM;
+  const H = heightCm * CM;
+  const depth = thicknessCm * CM;
+  const scaleX = W / BOOK_W_PROTO;
+  const scaleY = H / BOOK_H_PROTO;
+  const coverThickness = COVER_THICKNESS_PROTO * scaleY;
+  const spineWidth = SPINE_WIDTH_PROTO * scaleX;
+  const hingeNotch = HINGE_NOTCH_PROTO * scaleX;
+
+  const group = new THREE.Group();
+  const halfW = W / 2;
+  const halfD = depth / 2;
+
+  const cc = new THREE.Color(palette.color);
+  const sc = new THREE.Color(palette.spine);
+  const clothEdgeColor = cc.clone().lerp(sc, 0.25);
+
+  const frontMat = new THREE.MeshStandardMaterial({ color: cc, roughness: 0.5, metalness: 0.02 });
+  const backMat = new THREE.MeshStandardMaterial({ color: cc, roughness: 0.55, metalness: 0.02 });
+  const spineMat = new THREE.MeshStandardMaterial({ color: sc, roughness: 0.45, metalness: 0.03 });
+  const E = new THREE.MeshStandardMaterial({ color: clothEdgeColor, roughness: 0.6, metalness: 0.02 });
+  const pageEdgeMat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(THEME.pageColor), roughness: 0.95, map: pageEdgeTex,
+  });
+  const pageInnerMat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(THEME.pageColor), roughness: 0.95,
+  });
+
+  // Page block
+  const pageW = W - spineWidth - hingeNotch - 0.03 * scaleX;
+  const pageH = H - 0.04 * scaleY;
+  const pageD = Math.max(depth * 0.7, depth - 2 * coverThickness - 0.001);
+  const pageBlock = new THREE.Mesh(
+    new THREE.BoxGeometry(pageW, pageH, pageD),
+    [pageEdgeMat, pageInnerMat, pageEdgeMat, pageEdgeMat, pageInnerMat, pageInnerMat],
+  );
+  pageBlock.position.set(-halfW + spineWidth + hingeNotch + pageW / 2 + 0.005 * scaleX, 0, 0);
+  group.add(pageBlock);
+
+  // Boards
+  const coverW = W - spineWidth - hingeNotch;
+  const coverCenterX = -halfW + spineWidth + hingeNotch + coverW / 2;
+
+  const frontBoard = new THREE.Mesh(
+    new THREE.BoxGeometry(coverW, H, coverThickness),
+    [E, E, E, E, frontMat, E],
+  );
+  frontBoard.position.set(coverCenterX, 0, halfD - coverThickness / 2);
+  group.add(frontBoard);
+
+  const backBoard = new THREE.Mesh(
+    new THREE.BoxGeometry(coverW, H, coverThickness),
+    [E, E, E, E, E, backMat],
+  );
+  backBoard.position.set(coverCenterX, 0, -halfD + coverThickness / 2);
+  group.add(backBoard);
+
+  const spineBoard = new THREE.Mesh(
+    new THREE.BoxGeometry(spineWidth, H, depth),
+    [E, spineMat, E, E, E, E],
+  );
+  spineBoard.position.set(-halfW + spineWidth / 2, 0, 0);
+  group.add(spineBoard);
+
+  // Hinge-notch crease
+  const notchMat = new THREE.MeshStandardMaterial({
+    color: clothEdgeColor.clone().multiplyScalar(0.78),
+    roughness: 0.78, metalness: 0,
+  });
+  const notchBlock = new THREE.Mesh(
+    new THREE.BoxGeometry(hingeNotch, H, depth - coverThickness * 0.6),
+    notchMat,
+  );
+  notchBlock.position.set(-halfW + spineWidth + hingeNotch / 2, 0, 0);
+  group.add(notchBlock);
+
+  return group;
+}
+
+// ── Lay them out side by side, standing upright ───────────────────────────
+// Standard trade-paperback size: 14×21×1 cm; hardcover: 16×24×3 cm
+const softcover = buildSoftcover(14, 21, 1, PALETTE[0]);
+const hardcover = buildHardcover(16, 24, 3, PALETTE[1]);
+
+// Stand each book on its bottom edge: rotate 90° around X so +Y axis (model top)
+// points up in world. The model's -Y becomes world +Y top? No — original axes:
+// +Y = top edge (vertical), so already vertical. Just space along X.
+softcover.position.set(-0.13, 0, 0);
+hardcover.position.set(0.13, 0, 0);
+scene.add(softcover, hardcover);
+
+// ── Resize ────────────────────────────────────────────────────────────────
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ── Animate ───────────────────────────────────────────────────────────────
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>

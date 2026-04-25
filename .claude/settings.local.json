@@ -8,7 +8,12 @@
       "mcp__Claude_Preview__preview_start",
       "Bash(git add *)",
       "Bash(git rm *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(curl -s \"http://localhost:8000/note/index.html\")",
+      "Bash(grep -iE \"\\\\.\\(png|jpg|jpeg|zip\\)$\")",
+      "Bash(rm -rf /Users/phz/Sites/book-viewer/static/*)",
+      "Bash(cp -r \"/Users/phz/Downloads/book html flip/\"* /Users/phz/Sites/book-viewer/static/)",
+      "Bash(python3 -c ' *)"
     ]
   }
 }

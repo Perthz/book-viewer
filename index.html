@@ -44,16 +44,22 @@
 <div id="tabs">
   <button class="tab active" data-frame="classicFrame">Hardcover (flip)</button>
   <button class="tab" data-frame="noteFrame">Notebook (flip)</button>
+  <button class="tab" data-frame="biblioFrame">Biblio Books</button>
+  <button class="tab" data-frame="staticFrame">Book (static)</button>
 </div>
 
 <iframe id="classicFrame" src="./classic.html"></iframe>
 <iframe id="noteFrame" class="hidden" data-src="./note/index.html"></iframe>
+<iframe id="biblioFrame" class="hidden" data-src="./biblio/index.html"></iframe>
+<iframe id="staticFrame" class="hidden" data-src="./static/index.html"></iframe>
 
 <script>
   const tabs = document.querySelectorAll('.tab');
   const frames = {
     classicFrame: document.getElementById('classicFrame'),
     noteFrame: document.getElementById('noteFrame'),
+    biblioFrame: document.getElementById('biblioFrame'),
+    staticFrame: document.getElementById('staticFrame'),
   };
 
   tabs.forEach((btn) => {

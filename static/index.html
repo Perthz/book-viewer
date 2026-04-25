@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Book (static) — 3D Viewer</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #f4f1ec; overflow: hidden; font-family: system-ui, sans-serif; }
+    #viewer { width: 100vw; height: 100vh; display: block; }
+    #loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: #f4f1ec; color: #888; font-size: 1rem; z-index: 10; }
+    #hint { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); color: #bbb; font-size: 0.75rem; pointer-events: none; }
+    #controls {
+      position: fixed; top: 80px; right: 20px;
+      background: rgba(20, 20, 26, 0.88);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px; padding: 18px 20px;
+      color: #e0e0e0; font-size: 0.8rem;
+      width: 220px;
+      backdrop-filter: blur(12px);
+      z-index: 20; display: none;
+    }
+    #controls h3 { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #666; margin-bottom: 14px; font-weight: 500; }
+    .dim-row { margin-bottom: 12px; }
+    .dim-label { display: flex; justify-content: space-between; margin-bottom: 5px; }
+    .dim-label span:first-child { color: #aaa; }
+    .dim-label span:last-child { color: #fff; font-weight: 600; min-width: 60px; text-align: right; }
+    .dim-unit { color: #555; font-size: 0.7rem; margin-left: 2px; }
+    input[type="range"] { -webkit-appearance: none; width: 100%; height: 3px; background: rgba(255,255,255,0.1); border-radius: 2px; outline: none; }
+    input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; background: #6c8fff; border-radius: 50%; cursor: pointer; box-shadow: 0 0 8px rgba(108,143,255,0.5); }
+    .divider { border: none; border-top: 1px solid rgba(255,255,255,0.06); margin: 14px 0; }
+    #resetBtn { width: 100%; padding: 7px; background: rgba(108,143,255,0.15); border: 1px solid rgba(108,143,255,0.3); border-radius: 6px; color: #6c8fff; font-size: 0.75rem; cursor: pointer; }
+    #resetBtn:hover { background: rgba(108,143,255,0.25); }
+    #openBtn {
+      width: 100%; padding: 9px;
+      background: rgba(255, 160, 80, 0.18); border: 1px solid rgba(255, 160, 80, 0.35);
+      border-radius: 6px; color: #ffb060; font-size: 0.78rem;
+      cursor: pointer; font-weight: 500;
+    }
+    #openBtn:hover { background: rgba(255, 160, 80, 0.30); }
+    #openBtn.open { background: rgba(80, 220, 130, 0.15); border-color: rgba(80, 220, 130, 0.35); color: #50dc82; }
+    .anim-row { margin-top: 12px; }
+    .anim-label { display: flex; justify-content: space-between; margin-bottom: 5px; }
+    .anim-label span:first-child { color: #aaa; font-size: 0.72rem; }
+    .anim-label span:last-child { color: #fff; font-weight: 600; font-size: 0.72rem; }
+  </style>
+</head>
+<body>
+
+<div id="viewer"></div>
+<div id="loading">Loading model…</div>
+<div id="hint">Drag to rotate · Scroll to zoom · Right-drag to pan</div>
+
+<div id="controls">
+  <h3>Book Dimensions</h3>
+  <div class="dim-row">
+    <div class="dim-label"><span>Width</span><span><span id="wVal">14.0</span><span class="dim-unit">cm</span></span></div>
+    <input type="range" id="wSlider" min="5" max="50" step="0.5" value="14">
+  </div>
+  <div class="dim-row">
+    <div class="dim-label"><span>Height</span><span><span id="hVal">21.0</span><span class="dim-unit">cm</span></span></div>
+    <input type="range" id="hSlider" min="5" max="40" step="0.5" value="21">
+  </div>
+  <div class="dim-row">
+    <div class="dim-label"><span>Thickness</span><span><span id="tVal">2.0</span><span class="dim-unit">cm</span></span></div>
+    <input type="range" id="tSlider" min="0.3" max="6" step="0.1" value="2">
+  </div>
+  <hr class="divider">
+  <button id="openBtn">Open Book</button>
+  <div class="anim-row">
+    <div class="anim-label"><span>Open Amount</span><span><span id="openVal">0</span>%</span></div>
+    <input type="range" id="openSlider" min="0" max="100" step="1" value="0">
+  </div>
+  <hr class="divider">
+  <button id="resetBtn">Reset</button>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+// ── Biblio light theme ─────────────────────────────────────────────────────
+const THEME = {
+  background: 0xf4f1ec,
+  fog: { color: 0xf4f1ec, near: 800, far: 2200 },
+  ambient: { top: 0xfffdf5, bottom: 0xe8e4dc, intensity: 0.5 },
+  keyLight: { color: 0xfff8e8, intensity: 1.5, pos: [4, 8, 5] },
+  fillLight: { color: 0xf0f4f8, intensity: 0.35, pos: [-5, 3, 2] },
+  rimLight: { color: 0xffffff, intensity: 0.25, pos: [0, 2, -4] },
+  exposure: 1.15,
+};
+
+const container = document.getElementById('viewer');
+const loading = document.getElementById('loading');
+const controls = document.getElementById('controls');
+
+const sliders = {
+  w: document.getElementById('wSlider'),
+  h: document.getElementById('hSlider'),
+  t: document.getElementById('tSlider'),
+};
+const vals = {
+  w: document.getElementById('wVal'),
+  h: document.getElementById('hVal'),
+  t: document.getElementById('tVal'),
+};
+const openSlider = document.getElementById('openSlider');
+const openVal = document.getElementById('openVal');
+const openBtn = document.getElementById('openBtn');
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMappingExposure = THEME.exposure;
+container.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = makeGradientTexture(THEME.background, 0xebe6dd);
+scene.fog = new THREE.Fog(THEME.fog.color, THEME.fog.near, THEME.fog.far);
+
+function makeGradientTexture(top, bottom) {
+  const c = document.createElement('canvas');
+  c.width = 2; c.height = 256;
+  const ctx = c.getContext('2d');
+  const g = ctx.createLinearGradient(0, 0, 0, 256);
+  const hex = (n) => '#' + n.toString(16).padStart(6, '0');
+  g.addColorStop(0, hex(top));
+  g.addColorStop(0.55, hex(top));
+  g.addColorStop(1, hex(bottom));
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 2, 256);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 5000);
+camera.position.set(0, 20, 60);
+
+const orbitControls = new OrbitControls(camera, renderer.domElement);
+orbitControls.enableDamping = true;
+orbitControls.dampingFactor = 0.06;
+orbitControls.minDistance = 5;
+orbitControls.maxDistance = 500;
+
+scene.add(new THREE.HemisphereLight(THEME.ambient.top, THEME.ambient.bottom, THEME.ambient.intensity));
+const key = new THREE.DirectionalLight(THEME.keyLight.color, THEME.keyLight.intensity);
+key.position.set(...THEME.keyLight.pos); scene.add(key);
+const fill = new THREE.DirectionalLight(THEME.fillLight.color, THEME.fillLight.intensity);
+fill.position.set(...THEME.fillLight.pos); scene.add(fill);
+const rim = new THREE.DirectionalLight(THEME.rimLight.color, THEME.rimLight.intensity);
+rim.position.set(...THEME.rimLight.pos); scene.add(rim);
+
+const DEFAULT_W = 14, DEFAULT_H = 21, DEFAULT_T = 2;
+
+let bookGroup = null;
+let baseSize = { x: 1, y: 1, z: 1 };
+let mixer = null;
+let animAction = null;
+let animDuration = 0;
+let openAmount = 0;
+let isOpen = false;
+let animating = false;
+
+function applySize(wCm, hCm, tCm) {
+  if (!bookGroup) return;
+  // The model has nested scales (armature ×100 inside model ×0.17). Non-uniform
+  // scaling shears the hierarchy — use uniform scaling driven by the height
+  // slider, which is the most "real" book dimension. Width/thickness are
+  // displayed but don't independently rescale (the model's authored aspect
+  // ratio is preserved).
+  const s = hCm / baseSize.y;
+  bookGroup.scale.set(s, s, s);
+  sitOnGround();
+}
+
+function sitOnGround() {
+  if (!bookGroup) return;
+  bookGroup.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(bookGroup);
+  if (isFinite(box.min.y)) bookGroup.position.y -= box.min.y;
+}
+
+function setOpenAmount(t) {
+  if (!animAction) return;
+  openAmount = Math.max(0, Math.min(1, t));
+  animAction.time = openAmount * animDuration;
+  mixer.update(0);
+  sitOnGround();
+  openSlider.value = Math.round(openAmount * 100);
+  openVal.textContent = Math.round(openAmount * 100);
+  openBtn.textContent = isOpen ? 'Close Book' : 'Open Book';
+  openBtn.classList.toggle('open', openAmount > 0.05);
+}
+
+function toggleOpen() {
+  if (animating || !animAction) return;
+  isOpen = !isOpen;
+  const target = isOpen ? 1 : 0;
+  const start = openAmount;
+  const dur = 1.2;
+  let elapsed = 0;
+  animating = true;
+  let last = performance.now();
+  function step(now) {
+    const dt = (now - last) / 1000;
+    last = now;
+    elapsed += dt;
+    let pct = Math.min(elapsed / dur, 1);
+    pct = 1 - Math.pow(1 - pct, 3);
+    setOpenAmount(start + (target - start) * pct);
+    if (pct < 1) requestAnimationFrame(step);
+    else animating = false;
+  }
+  requestAnimationFrame(step);
+}
+
+openBtn.addEventListener('click', toggleOpen);
+openSlider.addEventListener('input', () => setOpenAmount(parseInt(openSlider.value) / 100));
+
+const loader = new GLTFLoader();
+loader.load('./scene.gltf', (gltf) => {
+  bookGroup = new THREE.Group();
+  scene.add(bookGroup);
+  bookGroup.add(gltf.scene);
+
+  const measured = new THREE.Box3().setFromObject(gltf.scene).getSize(new THREE.Vector3());
+  baseSize = { x: measured.x, y: measured.y, z: measured.z };
+
+  // Set up the open/close animation if present.
+  if (gltf.animations && gltf.animations.length > 0) {
+    mixer = new THREE.AnimationMixer(bookGroup);
+    const clip = gltf.animations[0];
+    animAction = mixer.clipAction(clip);
+    animDuration = clip.duration;
+    animAction.play();
+    animAction.paused = true;
+    animAction.time = 0;
+  }
+
+  applySize(DEFAULT_W, DEFAULT_H, DEFAULT_T);
+  console.log('[fit] baseSize=' + baseSize.x.toFixed(2) + ',' + baseSize.y.toFixed(2) + ',' + baseSize.z.toFixed(2));
+  const fitBox = new THREE.Box3().setFromObject(bookGroup);
+  const size = fitBox.getSize(new THREE.Vector3());
+  const fitCenter = fitBox.getCenter(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z);
+  const dist = maxDim / (2 * Math.tan((camera.fov * Math.PI / 180) / 2)) * 1.4;
+  console.log('[fit] scaledSize=' + size.x.toFixed(2) + ',' + size.y.toFixed(2) + ',' + size.z.toFixed(2) + ' center=' + fitCenter.x.toFixed(2) + ',' + fitCenter.y.toFixed(2) + ',' + fitCenter.z.toFixed(2));
+  // Center the book on origin
+  bookGroup.position.x -= fitCenter.x;
+  bookGroup.position.z -= fitCenter.z;
+  bookGroup.position.y -= fitCenter.y;
+  sitOnGround();
+  const finalCenter = new THREE.Box3().setFromObject(bookGroup).getCenter(new THREE.Vector3());
+  // Default view: front cover, looking along -Z so the X×Y face (the largest,
+  // i.e. the cover) fills the viewport. Slight downward tilt avoids gimbal lock.
+  const camDist = Math.max(size.x, size.y) * 1.4;
+  console.log('[fit] finalCenter=' + finalCenter.x.toFixed(2) + ',' + finalCenter.y.toFixed(2) + ',' + finalCenter.z.toFixed(2) + ' camDist=' + camDist.toFixed(2));
+  camera.position.set(finalCenter.x, finalCenter.y + camDist * 0.15, finalCenter.z + camDist);
+  camera.lookAt(finalCenter);
+  orbitControls.target.copy(finalCenter);
+  orbitControls.update();
+
+  controls.style.display = 'block';
+  loading.style.display = 'none';
+}, undefined, (err) => {
+  loading.textContent = 'Error: ' + err.message;
+});
+
+function onSlider() {
+  const w = parseFloat(sliders.w.value);
+  const h = parseFloat(sliders.h.value);
+  const t = parseFloat(sliders.t.value);
+  vals.w.textContent = w.toFixed(1);
+  vals.h.textContent = h.toFixed(1);
+  vals.t.textContent = t.toFixed(1);
+  applySize(w, h, t);
+}
+
+sliders.w.addEventListener('input', onSlider);
+sliders.h.addEventListener('input', onSlider);
+sliders.t.addEventListener('input', onSlider);
+
+document.getElementById('resetBtn').addEventListener('click', () => {
+  sliders.w.value = DEFAULT_W;
+  sliders.h.value = DEFAULT_H;
+  sliders.t.value = DEFAULT_T;
+  onSlider();
+  setOpenAmount(0);
+  isOpen = false;
+  animating = false;
+});
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+function animate() {
+  requestAnimationFrame(animate);
+  if (mixer) mixer.update(0); // animation time managed manually
+  orbitControls.update();
+  renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>

@@ -40,6 +40,7 @@
     .cover-btn svg { flex-shrink: 0; }
     #coverName { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #888; font-size: 0.7rem; }
     #coverPreview { width: 100%; height: 60px; object-fit: cover; border-radius: 4px; margin-top: 8px; display: none; border: 1px solid rgba(255,255,255,0.08); }
+    #uvDebug { font-size: 0.65rem; color: #4a9eff; margin-top: 6px; display: none; word-break: break-all; }
     #resetBtn { width: 100%; padding: 7px; background: rgba(108,143,255,0.15); border: 1px solid rgba(108,143,255,0.3); border-radius: 6px; color: #6c8fff; font-size: 0.75rem; cursor: pointer; transition: background 0.2s; }
     #resetBtn:hover { background: rgba(108,143,255,0.25); }
 
@@ -100,7 +101,7 @@
   </div>
 
   <div class="cover-row">
-    <label>Cover Image</label>
+    <label>Front Cover Image</label>
     <input type="file" id="coverInput" accept="image/*">
     <button class="cover-btn" id="coverBtn">
       <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
@@ -109,6 +110,8 @@
       <span id="coverName">Choose image…</span>
     </button>
     <img id="coverPreview" alt="Cover preview">
+    <div id="uvDebug"></div>
+    <button id="unlockBtn" style="display:none; width:100%; margin-top:8px; padding:6px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); border-radius:6px; color:#aaa; font-size:0.7rem; cursor:pointer;">✕ Unlock W : H ratio</button>
   </div>
 </div>
 
@@ -144,19 +147,45 @@ const openSlider = document.getElementById('openSlider');
 const openVal    = document.getElementById('openVal');
 const openBtn    = document.getElementById('openBtn');
 
+// ── Biblio light theme ─────────────────────────────────────────────────────
+const THEME = {
+  background: 0xf4f1ec,
+  // Notebook scene is in cm (1 unit = 1 cm) while biblio is meters; scale fog ×100.
+  fog: { color: 0xf4f1ec, near: 800, far: 2200 },
+  ambient: { top: 0xfffdf5, bottom: 0xe8e4dc, intensity: 0.5 },
+  keyLight: { color: 0xfff8e8, intensity: 1.5, pos: [4, 8, 5] },
+  fillLight: { color: 0xf0f4f8, intensity: 0.35, pos: [-5, 3, 2] },
+  rimLight: { color: 0xffffff, intensity: 0.25, pos: [0, 2, -4] },
+  exposure: 1.15,
+};
+
 // ── Renderer ──────────────────────────────────────────────────────────────
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.15;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMappingExposure = THEME.exposure;
 container.appendChild(renderer.domElement);
 
 // ── Scene ───────────────────────────────────────────────────────────────────
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xf4f1ec);
+scene.background = makeGradientTexture(THEME.background, 0xebe6dd);
+scene.fog = new THREE.Fog(THEME.fog.color, THEME.fog.near, THEME.fog.far);
+
+function makeGradientTexture(top, bottom) {
+  const c = document.createElement('canvas');
+  c.width = 2; c.height = 256;
+  const g = c.getContext('2d').createLinearGradient(0, 0, 0, 256);
+  g.addColorStop(0, '#' + top.toString(16).padStart(6, '0'));
+  g.addColorStop(0.55, '#' + top.toString(16).padStart(6, '0'));
+  g.addColorStop(1, '#' + bottom.toString(16).padStart(6, '0'));
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 2, 256);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
 
 // ── Camera ──────────────────────────────────────────────────────────────────
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
@@ -170,48 +199,28 @@ orbitControls.minDistance = 0.5;
 orbitControls.maxDistance = 50;
 orbitControls.target.set(0, 0, 0);
 
-// ── Lights ───────────────────────────────────────────────────────────────────
-const hemi = new THREE.HemisphereLight(0xfffdf5, 0xe8e4dc, 0.5);
+// ── Lights (biblio rig, no shadow casting) ──────────────────────────────────
+const hemi = new THREE.HemisphereLight(THEME.ambient.top, THEME.ambient.bottom, THEME.ambient.intensity);
 scene.add(hemi);
 
-const key = new THREE.DirectionalLight(0xfff8e8, 1.5);
-key.position.set(4, 8, 5);
-key.castShadow = true;
-key.shadow.mapSize.set(2048, 2048);
-key.shadow.camera.left   = -8;
-key.shadow.camera.right  =  8;
-key.shadow.camera.top    =  6;
-key.shadow.camera.bottom = -6;
-key.shadow.camera.near   =  0.1;
-key.shadow.camera.far    = 25;
-key.shadow.bias          = -0.002;
-key.shadow.normalBias    =  0.5;
-key.shadow.radius        =  4;
+const key = new THREE.DirectionalLight(THEME.keyLight.color, THEME.keyLight.intensity);
+key.position.set(...THEME.keyLight.pos);
 scene.add(key);
 
-const fill = new THREE.DirectionalLight(0xf0f4f8, 0.35);
-fill.position.set(-5, 3, 2);
+const fill = new THREE.DirectionalLight(THEME.fillLight.color, THEME.fillLight.intensity);
+fill.position.set(...THEME.fillLight.pos);
 scene.add(fill);
 
-const rim = new THREE.DirectionalLight(0xffffff, 0.25);
-rim.position.set(0, 2, -4);
+const rim = new THREE.DirectionalLight(THEME.rimLight.color, THEME.rimLight.intensity);
+rim.position.set(...THEME.rimLight.pos);
 scene.add(rim);
-
-// ── Shadow catcher ──────────────────────────────────────────────────────────
-const ground = new THREE.Mesh(
-  new THREE.PlaneGeometry(20, 20),
-  new THREE.ShadowMaterial({ opacity: 0.15 })
-);
-ground.rotation.x = -Math.PI / 2;
-ground.position.y = 0;
-ground.receiveShadow = true;
-scene.add(ground);
 
 // ── Book state ───────────────────────────────────────────────────────────────
 const DEFAULT_W = 14, DEFAULT_H = 21, DEFAULT_T = 1;
 const DEFAULT_COLOR = '#5a7b5a';
 
 let bookGroup  = null;
+let baseSize   = { x: 1, y: 1, z: 1 };
 let mixer     = null;
 let animAction = null;
 let animClip  = null;
@@ -224,10 +233,16 @@ let openAmount = 0; // 0 = closed, 1 = open
 function applySize(wCm, hCm, tCm) {
   if (!bookGroup) return;
   // Model axes: X = width, Y = thickness (page stack), Z = height (vertical)
-  const sx = wCm / 14;
-  const sy = tCm / 1;
-  const sz = hCm / 21;
-  bookGroup.scale.set(sx, sy, sz);
+  // 1 scene unit = 1 cm, scaled relative to the model's intrinsic size.
+  bookGroup.scale.set(wCm / baseSize.x, tCm / baseSize.y, hCm / baseSize.z);
+  sitOnGround();
+}
+
+function sitOnGround() {
+  if (!bookGroup) return;
+  bookGroup.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(bookGroup);
+  if (isFinite(box.min.y)) bookGroup.position.y -= box.min.y;
 }
 
 function setOpenAmount(t) {
@@ -235,6 +250,7 @@ function setOpenAmount(t) {
   openAmount = Math.max(0, Math.min(1, t));
   animAction.time = openAmount * animDuration;
   mixer.update(0);
+  sitOnGround();
   openSlider.value = Math.round(openAmount * 100);
   openVal.textContent = Math.round(openAmount * 100);
   openBtn.textContent = isOpen ? 'Close Book' : 'Open Book';
@@ -279,13 +295,14 @@ loader.load(
     bookGroup = new THREE.Group();
     scene.add(bookGroup);
 
-    gltf.scene.traverse((child) => {
-      if (child.isMesh) {
-        child.castShadow = true;
-        child.receiveShadow = false;
-      }
-    });
     bookGroup.add(gltf.scene);
+    // Stand the book upright: model's Z axis (page top→bottom) → world Y (up).
+    bookGroup.rotation.x = -Math.PI / 2;
+
+    // Measure intrinsic size at scale 1 so cm sliders map to scene units.
+    const measureBox = new THREE.Box3().setFromObject(gltf.scene);
+    const measured = measureBox.getSize(new THREE.Vector3());
+    baseSize = { x: measured.x, y: measured.y, z: measured.z };
 
     // Center
     const box = new THREE.Box3().setFromObject(bookGroup);
@@ -303,60 +320,113 @@ loader.load(
       animAction.time = 0;
     }
 
-    // Split the skinned mesh into two material groups: cover (kaft_* bones) and pages.
-    // Reorders the index buffer so cover triangles come first, then assigns [coverMat, pageMat].
+    // Split the skinned mesh into 4 material groups by bone family:
+    //   0 = front cover (kaft_R*), 1 = back cover (kaft_L*), 2 = spine (stam*), 3 = pages
+    // The original cover used one shared material with overlapping UV regions, so a
+    // single uploaded image was being mirrored onto the back. Splitting per region
+    // lets the front/back/spine each carry their own texture.
     let skinnedMesh = null;
     gltf.scene.traverse((child) => { if (child.isSkinnedMesh && !skinnedMesh) skinnedMesh = child; });
 
     if (skinnedMesh) {
       const geom = skinnedMesh.geometry;
-      const bones = skinnedMesh.skeleton.bones;
-      const coverBoneSet = new Set(
-        bones.map((b, i) => {
-          const n = b.name.toLowerCase();
-          return (n.startsWith('kaft') || n.startsWith('stam')) ? i : -1;
-        }).filter(i => i >= 0)
-      );
+
+      // Normalize UVs to [0,1] so uploaded images fill the full face without inset borders.
+      const uvAttr = geom.attributes.uv;
+      if (uvAttr) {
+        const uvArr = uvAttr.array;
+        let uMin = Infinity, uMax = -Infinity, vMin = Infinity, vMax = -Infinity;
+        for (let i = 0; i < uvArr.length; i += 2) {
+          const u = uvArr[i], v = uvArr[i + 1];
+          if (u < uMin) uMin = u; if (u > uMax) uMax = u;
+          if (v < vMin) vMin = v; if (v > vMax) vMax = v;
+        }
+        const uRange = uMax - uMin, vRange = vMax - vMin;
+        for (let i = 0; i < uvArr.length; i += 2) {
+          uvArr[i]     = (uvArr[i]     - uMin) / uRange;
+          uvArr[i + 1] = (uvArr[i + 1] - vMin) / vRange;
+        }
+        uvAttr.needsUpdate = true;
+        window.__uvRaw = { uMin, uMax, vMin, vMax, uNorm: uRange, vNorm: vRange };
+        window.__uvRawScale = {
+          uScale: 1 / uRange,
+          vScale: 1 / vRange,
+          uOffset: uMin / uRange,
+          vOffset: vMin / vRange,
+        };
+      }
+
+      // Map node IDs → material groups (joint indices from GLTF joints array)
+      const joints = gltf.skins[0].joints; // [5, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+      const nodeGroupOf = (nodeId) => {
+        const n = (skinnedMesh.skeleton.bones.find(b => b.index === nodeId)?.name || '').toLowerCase();
+        if (n.startsWith('kaft_r')) return 0; // front cover
+        if (n.startsWith('kaft_l')) return 1; // back cover
+        if (n.startsWith('stam'))   return 2; // spine
+        return 3;                              // pages / other
+      };
+      const jointGroup = joints.map(ji => nodeGroupOf(ji)); // [group per joint]
 
       const skinIndex  = geom.attributes.skinIndex.array;
       const skinWeight = geom.attributes.skinWeight.array;
       const index      = geom.index.array;
 
-      const isCoverVertex = (vi) => {
-        let coverW = 0;
+      // Dominant group of a vertex = highest summed bone weight among the 4 buckets.
+      const vertGroup = (vi) => {
+        const w = [0, 0, 0, 0];
         for (let k = 0; k < 4; k++) {
-          const bi = skinIndex[vi * 4 + k];
-          const bw = skinWeight[vi * 4 + k];
-          if (coverBoneSet.has(bi)) coverW += bw;
+          const ji = skinIndex[vi * 4 + k];     // joint array index
+          const wt = skinWeight[vi * 4 + k];
+          const g = jointGroup[ji] ?? 3;
+          w[g] += wt;
         }
-        return coverW > 0.85;
+        return w[0] >= w[1] && w[0] >= w[2] && w[0] >= w[3] ? 0 :
+               w[1] >= w[2] && w[1] >= w[3] ? 1 :
+               w[2] >= w[3] ? 2 : 3;
       };
 
-      const coverTris = [];
-      const pageTris  = [];
+      // Triangle bucketing by dominant vertex group (majority vote, not strict agreement).
+      const buckets = [[], [], [], []];
       for (let i = 0; i < index.length; i += 3) {
         const a = index[i], b = index[i + 1], c = index[i + 2];
-        const allCover = isCoverVertex(a) && isCoverVertex(b) && isCoverVertex(c);
-        (allCover ? coverTris : pageTris).push(a, b, c);
+        const ga = vertGroup(a), gb = vertGroup(b), gc = vertGroup(c);
+        const groups = [ga, gb, gc];
+        let g = ga;
+        let count = (ga === g) + (gb === g) + (gc === g);
+        for (const h of [gb, gc]) {
+          const c2 = (ga === h) + (gb === h) + (gc === h);
+          if (c2 > count) { g = h; count = c2; }
+        }
+        buckets[g].push(a, b, c);
       }
 
-      const reordered = new (index.constructor)(coverTris.length + pageTris.length);
-      reordered.set(coverTris, 0);
-      reordered.set(pageTris, coverTris.length);
+      const total = buckets.reduce((s, b) => s + b.length, 0);
+      const reordered = new (index.constructor)(total);
+      let off = 0;
+      const groupRanges = buckets.map((b) => { const r = { start: off, count: b.length }; reordered.set(b, off); off += b.length; return r; });
       geom.setIndex(new THREE.BufferAttribute(reordered, 1));
       geom.clearGroups();
-      geom.addGroup(0, coverTris.length, 0);
-      geom.addGroup(coverTris.length, pageTris.length, 1);
+      groupRanges.forEach((r, i) => { if (r.count > 0) geom.addGroup(r.start, r.count, i); });
 
       const originalMat = skinnedMesh.material;
-      const coverMat = originalMat.clone();
+      const frontMat = originalMat.clone();
+      const backMat  = originalMat.clone();
+      const spineMat = originalMat.clone();
       const pageMat  = originalMat.clone();
+      // Debug colors: front=red, back=green, spine=blue, pages=cream
+      frontMat.color.set(0xff0000);
+      backMat.color.set(0x00ff00);
+      spineMat.color.set(0x0000ff);
       pageMat.color.set(0xf5f1e8);
       pageMat.emissive?.set(0x6b6860);
       pageMat.side = THREE.DoubleSide;
-      skinnedMesh.material = [coverMat, pageMat];
+      skinnedMesh.material = [frontMat, backMat, spineMat, pageMat];
       coverMesh = skinnedMesh;
-      coverMesh._coverMatIndex = 0;
+      coverMesh._coverMatIndex = 0;     // legacy: applyColor still drives the front
+      coverMesh._frontMat = frontMat;
+      coverMesh._backMat  = backMat;
+      coverMesh._spineMat = spineMat;
+
     }
 
     applySize(DEFAULT_W, DEFAULT_H, DEFAULT_T);
@@ -365,11 +435,12 @@ loader.load(
     // Fit camera to book
     const fitBox = new THREE.Box3().setFromObject(bookGroup);
     const size   = fitBox.getSize(new THREE.Vector3());
+    const fitCenter = fitBox.getCenter(new THREE.Vector3());
     const maxDim = Math.max(size.x, size.y, size.z);
     const dist   = maxDim / (2 * Math.tan((camera.fov * Math.PI / 180) / 2)) * 2.2;
-    camera.position.set(dist * 0.5, dist * 0.35, dist);
-    camera.lookAt(0, 0, 0);
-    orbitControls.target.set(0, 0, 0);
+    camera.position.set(fitCenter.x + dist * 0.5, fitCenter.y + dist * 0.35, fitCenter.z + dist);
+    camera.lookAt(fitCenter);
+    orbitControls.target.copy(fitCenter);
     orbitControls.update();
 
     controls.style.display = 'block';
@@ -380,24 +451,43 @@ loader.load(
 );
 
 // ── Dimension sliders ───────────────────────────────────────────────────────
-function onSlider() {
-  const w = parseFloat(sliders.w.value);
-  const h = parseFloat(sliders.h.value);
+function onSlider(source) {
+  let w = parseFloat(sliders.w.value);
+  let h = parseFloat(sliders.h.value);
   const t = parseFloat(sliders.t.value);
+
+  // Couple W↔H to the cover image's aspect ratio when locked.
+  if (lockedRatio && !suppressSlider) {
+    suppressSlider = true;
+    if (source === 'w') {
+      h = clampSlider(sliders.h, w * lockedRatio);
+      sliders.h.value = h;
+    } else if (source === 'h') {
+      w = clampSlider(sliders.w, h / lockedRatio);
+      sliders.w.value = w;
+    }
+    suppressSlider = false;
+  }
+
   vals.w.textContent = w.toFixed(1);
   vals.h.textContent = h.toFixed(1);
   vals.t.textContent = t.toFixed(1);
   applySize(w, h, t);
 }
 
-sliders.w.addEventListener('input', onSlider);
-sliders.h.addEventListener('input', onSlider);
-sliders.t.addEventListener('input', onSlider);
+function clampSlider(el, v) {
+  return Math.max(parseFloat(el.min), Math.min(parseFloat(el.max), v));
+}
+
+sliders.w.addEventListener('input', () => onSlider('w'));
+sliders.h.addEventListener('input', () => onSlider('h'));
+sliders.t.addEventListener('input', () => onSlider('t'));
 
 document.getElementById('resetBtn').addEventListener('click', () => {
   sliders.w.value = DEFAULT_W;
   sliders.h.value = DEFAULT_H;
   sliders.t.value = DEFAULT_T;
+  setRatioLock(null);
   onSlider();
   document.getElementById('colorPicker').value = DEFAULT_COLOR;
   applyColor(DEFAULT_COLOR);
@@ -407,19 +497,26 @@ document.getElementById('resetBtn').addEventListener('click', () => {
 });
 
 // ── Color ───────────────────────────────────────────────────────────────────
-function getCoverMat() {
-  if (!coverMesh) return null;
-  if (Array.isArray(coverMesh.material)) return coverMesh.material[coverMesh._coverMatIndex ?? 0];
-  return coverMesh.material;
+function coverMaterials() {
+  if (!coverMesh) return [];
+  return [coverMesh._frontMat, coverMesh._backMat, coverMesh._spineMat].filter(Boolean);
 }
 function applyColor(hex) {
-  const mat = getCoverMat();
-  if (!mat) return;
-  mat.color.set(hex);
-  mat.needsUpdate = true;
+  // Color picker drives all three cover regions; the upload pipeline overrides
+  // back/spine with a sampled colour from the image.
+  for (const m of coverMaterials()) {
+    m.color.set(hex);
+    m.needsUpdate = true;
+  }
 }
 
 document.getElementById('colorPicker').addEventListener('input', (e) => {
+  // Manual colour change drops any image-driven texture so the colour shows through.
+  if (currentTexture) {
+    if (coverMesh?._frontMat) { coverMesh._frontMat.map = null; coverMesh._frontMat.needsUpdate = true; }
+    currentTexture.dispose();
+    currentTexture = null;
+  }
   applyColor(e.target.value);
 });
 
@@ -431,26 +528,94 @@ const coverPreview = document.getElementById('coverPreview');
 
 coverBtn.addEventListener('click', () => coverInput.click());
 
+// Aspect-ratio lock: when a cover is uploaded, dragging width auto-updates height
+// (and vice versa) to preserve the image's W:H. Unlock button releases.
+let lockedRatio = null; // height / width, or null
+let suppressSlider = false;
+
+function setRatioLock(r) {
+  lockedRatio = r;
+  document.getElementById('unlockBtn').style.display = r ? 'block' : 'none';
+}
+
+function sampleEdgeColor(canvas) {
+  // Average a 6-pixel border so noisy art doesn't pull the spine colour around.
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height, b = Math.max(2, Math.floor(Math.min(w, h) * 0.04));
+  const samples = [
+    ctx.getImageData(0, 0, w, b).data,
+    ctx.getImageData(0, h - b, w, b).data,
+    ctx.getImageData(0, 0, b, h).data,
+    ctx.getImageData(w - b, 0, b, h).data,
+  ];
+  let r = 0, g = 0, bl = 0, n = 0;
+  for (const d of samples) {
+    for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i+1]; bl += d[i+2]; n++; }
+  }
+  const c = new THREE.Color();
+  c.setRGB(r / n / 255, g / n / 255, bl / n / 255, THREE.SRGBColorSpace);
+  return c;
+}
+
+function applyFrontCover(img) {
+  if (!coverMesh) return;
+  // Sample edge colour for back/spine.
+  const probe = document.createElement('canvas');
+  probe.width = img.naturalWidth; probe.height = img.naturalHeight;
+  probe.getContext('2d').drawImage(img, 0, 0);
+  const edge = sampleEdgeColor(probe);
+
+  // Front material gets the image; back & spine get the sampled edge colour.
+  if (currentTexture) currentTexture.dispose();
+  currentTexture = new THREE.Texture(img);
+  currentTexture.colorSpace = THREE.SRGBColorSpace;
+  currentTexture.anisotropy = 8;
+  currentTexture.needsUpdate = true;
+
+  const front = coverMesh._frontMat;
+  front.map = currentTexture;
+  front.color.set(0xffffff);
+  front.needsUpdate = true;
+
+  // Show UV scale in the debug div so we can confirm it's set
+  const uvDebug = document.getElementById('uvDebug');
+  const scale = window.__uvRawScale;
+  if (uvDebug && scale) {
+    uvDebug.textContent = 'UV norm: u[' + scale.uOffset.toFixed(4) + '-' + (scale.uOffset + 1/scale.uScale).toFixed(4) + '] v[' + scale.vOffset.toFixed(4) + '-' + (scale.vOffset + 1/scale.vScale).toFixed(4) + ']';
+  }
+
+  for (const m of [coverMesh._backMat, coverMesh._spineMat]) {
+    m.map = null;
+    m.color.copy(edge);
+    m.needsUpdate = true;
+  }
+
+  // Lock book aspect ratio to the image.
+  const ratio = img.naturalHeight / img.naturalWidth;
+  setRatioLock(ratio);
+  // Update height to match current width × ratio.
+  const w = parseFloat(sliders.w.value);
+  const newH = Math.max(parseFloat(sliders.h.min), Math.min(parseFloat(sliders.h.max), w * ratio));
+  suppressSlider = true;
+  sliders.h.value = newH;
+  vals.h.textContent = newH.toFixed(1);
+  applySize(w, newH, parseFloat(sliders.t.value));
+  suppressSlider = false;
+}
+
+document.getElementById('unlockBtn').addEventListener('click', () => setRatioLock(null));
+
 coverInput.addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (!file) return;
   coverNameEl.textContent = file.name;
-  coverPreview.src = URL.createObjectURL(file);
+  const url = URL.createObjectURL(file);
+  coverPreview.src = url;
   coverPreview.style.display = 'block';
 
   const img = new Image();
-  img.onload = () => {
-    if (currentTexture) currentTexture.dispose();
-    currentTexture = new THREE.Texture(img);
-    currentTexture.colorSpace = THREE.SRGBColorSpace;
-    currentTexture.needsUpdate = true;
-    const mat = getCoverMat();
-    if (mat) {
-      mat.map = currentTexture;
-      mat.needsUpdate = true;
-    }
-  };
-  img.src = URL.createObjectURL(file);
+  img.onload = () => applyFrontCover(img);
+  img.src = url;
 });
 
 // ── Resize ──────────────────────────────────────────────────────────────────
