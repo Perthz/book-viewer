@@ -47,6 +47,53 @@
     .rot-label { display: flex; justify-content: space-between; margin-bottom: 4px; }
     .rot-label span:first-child { color: #aaa; font-size: 0.72rem; }
     .rot-label span:last-child { color: #fff; font-weight: 600; font-size: 0.72rem; }
+
+    /* ── Cover Designer ── */
+    #coverDesignerBtn {
+      width: 100%; padding: 8px;
+      background: rgba(200,100,255,0.15); border: 1px solid rgba(200,100,255,0.3);
+      border-radius: 6px; color: #c864ff; font-size: 0.75rem;
+      cursor: pointer; margin-top: 4px;
+    }
+    #coverDesignerBtn:hover { background: rgba(200,100,255,0.25); }
+
+    #coverPanel {
+      position: fixed; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(15, 15, 22, 0.95);
+      border: 1px solid rgba(200,100,255,0.25);
+      border-radius: 14px; padding: 24px;
+      color: #e0e0e0; font-size: 0.78rem;
+      width: 480px; max-height: 90vh; overflow-y: auto;
+      z-index: 100; display: none;
+      backdrop-filter: blur(16px);
+    }
+    #coverPanel h2 { font-size: 0.85rem; font-weight: 600; color: #c864ff; margin-bottom: 16px; letter-spacing: 0.05em; }
+    .cp-row { margin-bottom: 12px; }
+    .cp-label { color: #888; font-size: 0.72rem; margin-bottom: 4px; display: block; }
+    .cp-input { width: 100%; padding: 7px 10px; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); border-radius: 6px; color: #e0e0e0; font-size: 0.78rem; outline: none; }
+    .cp-input:focus { border-color: rgba(200,100,255,0.5); }
+    .cp-row-inline { display: flex; gap: 8px; }
+    .cp-row-inline .cp-row { flex: 1; }
+    .cp-color-wrap { display: flex; align-items: center; gap: 8px; }
+    .cp-color-wrap input[type="color"] { width: 36px; height: 32px; border: none; background: none; cursor: pointer; border-radius: 4px; padding: 0; }
+    .cp-color-wrap span { color: #888; font-size: 0.72rem; }
+    .cp-zone-btns { display: flex; gap: 6px; margin-bottom: 12px; }
+    .cp-zone-btn {
+      flex: 1; padding: 7px 4px;
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 6px; color: #aaa; font-size: 0.72rem; cursor: pointer;
+    }
+    .cp-zone-btn.active { background: rgba(200,100,255,0.2); border-color: rgba(200,100,255,0.5); color: #c864ff; }
+    #cpPreview { width: 100%; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 12px; display: block; image-rendering: pixelated; }
+    .cp-actions { display: flex; gap: 8px; margin-top: 16px; }
+    .cp-apply { flex: 1; padding: 9px; background: rgba(200,100,255,0.2); border: 1px solid rgba(200,100,255,0.4); border-radius: 6px; color: #c864ff; font-size: 0.78rem; cursor: pointer; }
+    .cp-apply:hover { background: rgba(200,100,255,0.35); }
+    .cp-close { padding: 9px 14px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #888; font-size: 0.78rem; cursor: pointer; }
+    .cp-close:hover { background: rgba(255,255,255,0.1); color: #ccc; }
+    .cp-font-size-row { display: flex; align-items: center; gap: 8px; }
+    .cp-font-size-row input[type="range"] { flex: 1; }
+    .cp-font-size-row span { color: #888; font-size: 0.72rem; min-width: 40px; }
   </style>
 </head>
 <body>
@@ -96,6 +143,87 @@
     </select>
     <button class="btn anim-btn" id="savePosBtn">Save</button>
     <button class="btn anim-btn" id="delPosBtn" style="background:#4a2020">🗑</button>
+  </div>
+  <hr class="divider">
+  <button id="coverDesignerBtn">Cover Designer</button>
+</div>
+
+<!-- Cover Designer Panel -->
+<div id="coverPanel">
+  <h2>Cover Designer</h2>
+
+  <!-- Texture Preview -->
+  <canvas id="cpPreview" width="400" height="600"></canvas>
+
+  <!-- Cover Part Selector -->
+  <div class="cp-zone-btns">
+    <button class="cp-zone-btn active" data-zone="front">Front</button>
+    <button class="cp-zone-btn" data-zone="spine">Spine</button>
+    <button class="cp-zone-btn" data-zone="back">Back</button>
+  </div>
+
+  <!-- Text Fields -->
+  <div class="cp-row">
+    <label class="cp-label">Title</label>
+    <input type="text" class="cp-input" id="cpTitle" placeholder="Book Title" maxlength="60">
+  </div>
+  <div class="cp-row">
+    <label class="cp-label">Subtitle</label>
+    <input type="text" class="cp-input" id="cpSubtitle" placeholder="Optional subtitle" maxlength="80">
+  </div>
+  <div class="cp-row">
+    <label class="cp-label">Author</label>
+    <input type="text" class="cp-input" id="cpAuthor" placeholder="Author Name" maxlength="40">
+  </div>
+
+  <!-- Font Size -->
+  <div class="cp-row">
+    <label class="cp-label">Text Size</label>
+    <div class="cp-font-size-row">
+      <input type="range" id="cpFontSize" min="12" max="120" step="1" value="48">
+      <span id="cpFontSizeVal">48px</span>
+    </div>
+  </div>
+
+  <!-- Colors -->
+  <div class="cp-row-inline">
+    <div class="cp-row">
+      <label class="cp-label">Cover Color</label>
+      <div class="cp-color-wrap">
+        <input type="color" id="cpCoverColor" value="#8B4513">
+        <span id="cpCoverColorHex">#8B4513</span>
+      </div>
+    </div>
+    <div class="cp-row">
+      <label class="cp-label">Text Color</label>
+      <div class="cp-color-wrap">
+        <input type="color" id="cpTextColor" value="#FFFFFF">
+        <span id="cpTextColorHex">#FFFFFF</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Paper Color -->
+  <div class="cp-row">
+    <label class="cp-label">Paper Color</label>
+    <div class="cp-color-wrap">
+      <input type="color" id="cpPaperColor" value="#F5F0E8">
+      <span id="cpPaperColorHex">#F5F0E8</span>
+    </div>
+  </div>
+
+  <!-- Texture Color (tint whole texture) -->
+  <div class="cp-row">
+    <label class="cp-label">Texture Tint (applies color overlay on top of texture image)</label>
+    <div class="cp-color-wrap">
+      <input type="color" id="cpTintColor" value="#FFFFFF">
+      <span id="cpTintColorHex">#FFFFFF (none)</span>
+    </div>
+  </div>
+
+  <div class="cp-actions">
+    <button class="cp-apply" id="cpApply">Apply to Book</button>
+    <button class="cp-close" id="cpClose">Close</button>
   </div>
 </div>
 
@@ -321,7 +449,21 @@ loader.load('./scene.gltf', (gltf) => {
   bookGroup = new THREE.Group();
   scene.add(bookGroup);
   bookGroup.add(gltf.scene);
-  gltf.scene.traverse((o) => { if (o.isMesh || o.isSkinnedMesh) o.frustumCulled = false; });
+  gltf.scene.traverse((o) => {
+    if (o.isMesh || o.isSkinnedMesh) {
+      o.frustumCulled = false;
+      // Cover designer: capture book mesh and pages mesh references
+      const n = o.name.toLowerCase();
+      if (!bookMesh && n.includes('book') && !n.includes('pages')) {
+        bookMesh = o;
+        bookMaterial = o.material;
+      }
+      if (!pagesMesh && n.includes('page')) {
+        pagesMesh = o;
+        pagesMaterial = o.material;
+      }
+    }
+  });
 
   // Stand the book upright: model's Z axis → world Y (up).
   // applyRotation() below will set the full rotation (base + slider offsets).
@@ -492,6 +634,303 @@ function animate() {
   renderer.render(scene, camera);
 }
 animate();
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ── Cover Designer ───────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Cover zone UV bounds (from glTF analysis):
+//   Front: u[0.01–0.68], v[0.11–1.0]
+//   Spine: u[0.68–0.73], v[0.11–1.0]
+//   Back:  u[0.73–0.99], v[0.11–1.0]
+const ZONE_UV = {
+  front: { uMin: 0.01, uMax: 0.68, vMin: 0.11, vMax: 1.00 },
+  spine: { uMin: 0.68, uMax: 0.73, vMin: 0.11, vMax: 1.00 },
+  back:  { uMin: 0.73, uMax: 0.99, vMin: 0.11, vMax: 1.00 },
+};
+const TEX_W = 2048, TEX_H = 2048;
+
+// State
+let coverDesignerActiveZone = 'front';
+let texCanvas = null;       // 2048×2048 offscreen canvas
+let texCtx = null;
+let bookMesh = null;
+let pagesMesh = null;
+let bookMaterial = null;
+let pagesMaterial = null;
+let coverDesignerReady = false;
+
+// Zone canvas-pixel bounds
+function zonePixels(zone) {
+  const z = ZONE_UV[zone];
+  return {
+    x: Math.round(z.uMin * TEX_W),
+    y: Math.round((1 - z.vMax) * TEX_H),
+    w: Math.round((z.uMax - z.uMin) * TEX_W),
+    h: Math.round((z.vMax - z.vMin) * TEX_H),
+  };
+}
+
+// Load the original baseColor texture as a canvas
+function loadOriginalTexture() {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      texCanvas = document.createElement('canvas');
+      texCanvas.width = TEX_W;
+      texCanvas.height = TEX_H;
+      texCtx = texCanvas.getContext('2d');
+      texCtx.drawImage(img, 0, 0);
+      resolve();
+    };
+    img.onerror = () => {
+      // Fallback: blank canvas
+      texCanvas = document.createElement('canvas');
+      texCanvas.width = TEX_W;
+      texCanvas.height = TEX_H;
+      texCtx = texCanvas.getContext('2d');
+      resolve();
+    };
+    img.src = './textures/book_baseColor.png';
+  });
+}
+
+// Clear a zone to a solid color on the texture canvas
+function clearZone(zone, hexColor) {
+  const px = zonePixels(zone);
+  texCtx.fillStyle = hexColor;
+  texCtx.fillRect(px.x, px.y, px.w, px.h);
+}
+
+// Wrap long text onto lines
+function wrapText(ctx, text, maxWidth) {
+  const words = text.split(' ');
+  const lines = [];
+  let current = '';
+  for (const word of words) {
+    const test = current ? `${current} ${word}` : word;
+    if (ctx.measureText(test).width > maxWidth && current) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = test;
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
+}
+
+// Draw text into a zone centered vertically
+function drawTextInZone(zone, title, subtitle, author, fontSize, textColor) {
+  if (!texCtx || (!title && !subtitle && !author)) return;
+  const px = zonePixels(zone);
+  const cx = px.x + px.w / 2; // center x of zone
+  const zoneW = px.w;
+
+  texCtx.save();
+  texCtx.textAlign = 'center';
+  texCtx.textBaseline = 'middle';
+
+  const effectiveFontSize = Math.min(fontSize, px.h * 0.18);
+  const lineHeight = effectiveFontSize * 1.35;
+  const hasTitle = !!title.trim();
+  const hasSub   = !!subtitle.trim();
+  const hasAuth  = !!author.trim();
+  const totalLines = (hasTitle ? 1 : 0) + (hasSub ? 1 : 0) + (hasAuth ? 1 : 0);
+  if (totalLines === 0) { texCtx.restore(); return; }
+
+  // Starting y: center the block vertically in the zone
+  const totalH = totalLines * lineHeight;
+  let y = px.y + px.h / 2 - totalH / 2 + lineHeight / 2;
+
+  if (hasTitle) {
+    texCtx.font = `bold ${effectiveFontSize}px Georgia, serif`;
+    texCtx.fillStyle = textColor;
+    const lines = wrapText(texCtx, title.trim(), zoneW * 0.9);
+    lines.forEach((l, i) => {
+      texCtx.fillText(l, cx, y + i * lineHeight);
+    });
+    y += lines.length * lineHeight;
+  }
+
+  if (hasSub) {
+    texCtx.font = `${effectiveFontSize * 0.65}px Georgia, serif`;
+    texCtx.fillStyle = textColor;
+    texCtx.globalAlpha = 0.85;
+    const lines = wrapText(texCtx, subtitle.trim(), zoneW * 0.9);
+    lines.forEach((l, i) => {
+      texCtx.fillText(l, cx, y + i * lineHeight);
+    });
+    texCtx.globalAlpha = 1.0;
+    y += lines.length * lineHeight;
+  }
+
+  if (hasAuth) {
+    texCtx.font = `italic ${effectiveFontSize * 0.6}px Georgia, serif`;
+    texCtx.fillStyle = textColor;
+    texCtx.globalAlpha = 0.8;
+    const lines = wrapText(texCtx, author.trim(), zoneW * 0.9);
+    lines.forEach((l, i) => {
+      texCtx.fillText(l, cx, y + i * lineHeight);
+    });
+    texCtx.globalAlpha = 1.0;
+  }
+
+  texCtx.restore();
+}
+
+// Apply tint overlay on entire texture
+function applyTint(hexColor) {
+  if (!hexColor || hexColor === '#FFFFFF') return;
+  texCtx.save();
+  texCtx.globalCompositeOperation = 'multiply';
+  texCtx.fillStyle = hexColor;
+  texCtx.fillRect(0, 0, TEX_W, TEX_H);
+  texCtx.restore();
+}
+
+// Render the preview thumbnail in the panel
+function renderPreview() {
+  const preview = document.getElementById('cpPreview');
+  if (!preview || !texCanvas) return;
+  const pctx = preview.getContext('2d');
+  const zone = ZONE_UV[coverDesignerActiveZone];
+  // Show the full texture with a highlight border around the active zone
+  pctx.clearRect(0, 0, preview.width, preview.height);
+
+  // Draw scaled full texture
+  pctx.drawImage(texCanvas, 0, 0, preview.width, preview.height);
+
+  // Draw highlight box around active zone
+  const sx = zone.uMin * preview.width;
+  const sy = (1 - zone.vMax) * preview.height;
+  const sw = (zone.uMax - zone.uMin) * preview.width;
+  const sh = (zone.vMax - zone.vMin) * preview.height;
+  pctx.strokeStyle = '#c864ff';
+  pctx.lineWidth = 2;
+  pctx.strokeRect(sx, sy, sw, sh);
+
+  // Label
+  pctx.fillStyle = '#c864ff';
+  pctx.font = 'bold 11px system-ui';
+  pctx.textAlign = 'left';
+  pctx.fillText(coverDesignerActiveZone.toUpperCase() + ' ZONE', sx + 4, sy + 14);
+}
+
+// Upload the texture canvas to the Three.js material
+function applyTextureToBook() {
+  if (!bookMaterial || !texCanvas) return;
+  const newTex = new THREE.CanvasTexture(texCanvas);
+  newTex.colorSpace = THREE.SRGBColorSpace;
+  newTex.needsUpdate = true;
+  if (bookMaterial.map) bookMaterial.map.dispose();
+  bookMaterial.map = newTex;
+  bookMaterial.needsUpdate = true;
+}
+
+// Apply paper color to the pages mesh
+function applyPaperColor(hexColor) {
+  if (!pagesMaterial) return;
+  const col = new THREE.Color(hexColor);
+  pagesMaterial.color.set(col);
+  pagesMaterial.needsUpdate = true;
+}
+
+// ── UI wiring ────────────────────────────────────────────────────────────────
+
+document.getElementById('coverDesignerBtn').addEventListener('click', async () => {
+  const panel = document.getElementById('coverPanel');
+  panel.style.display = 'block';
+  if (!coverDesignerReady) {
+    await loadOriginalTexture();
+    coverDesignerReady = true;
+    renderPreview();
+  } else {
+    renderPreview();
+  }
+});
+
+document.getElementById('cpClose').addEventListener('click', () => {
+  document.getElementById('coverPanel').style.display = 'none';
+});
+
+// Zone buttons
+document.querySelectorAll('.cp-zone-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.cp-zone-btn').forEach((b) => b.classList.remove('active'));
+    btn.classList.add('active');
+    coverDesignerActiveZone = btn.dataset.zone;
+    renderPreview();
+  });
+});
+
+// Live preview as user types / changes settings (no apply needed)
+function liveUpdate() {
+  if (!coverDesignerReady) return;
+
+  const title    = document.getElementById('cpTitle').value;
+  const subtitle = document.getElementById('cpSubtitle').value;
+  const author   = document.getElementById('cpAuthor').value;
+  const fontSize = parseInt(document.getElementById('cpFontSize').value);
+  const textColor = document.getElementById('cpTextColor').value;
+  const coverColor = document.getElementById('cpCoverColor').value;
+  const tintColor  = document.getElementById('cpTintColor').value;
+
+  // Reload original texture first
+  loadOriginalTexture().then(() => {
+    // Apply tint on top of original
+    if (tintColor !== '#FFFFFF') {
+      texCtx.save();
+      texCtx.globalCompositeOperation = 'multiply';
+      texCtx.fillStyle = tintColor;
+      texCtx.fillRect(0, 0, TEX_W, TEX_H);
+      texCtx.restore();
+    }
+    // Draw on all zones
+    const zones = ['front', 'spine', 'back'];
+    zones.forEach((z) => {
+      clearZone(z, coverColor);
+    });
+    drawTextInZone(coverDesignerActiveZone, title, subtitle, author, fontSize, textColor);
+    renderPreview();
+  });
+}
+
+// Wire live update events
+['cpTitle', 'cpSubtitle', 'cpAuthor'].forEach((id) => {
+  document.getElementById(id).addEventListener('input', liveUpdate);
+});
+document.getElementById('cpFontSize').addEventListener('input', () => {
+  document.getElementById('cpFontSizeVal').textContent = document.getElementById('cpFontSize').value + 'px';
+  liveUpdate();
+});
+document.getElementById('cpTextColor').addEventListener('input', () => {
+  document.getElementById('cpTextColorHex').textContent = document.getElementById('cpTextColor').value;
+  liveUpdate();
+});
+document.getElementById('cpCoverColor').addEventListener('input', () => {
+  document.getElementById('cpCoverColorHex').textContent = document.getElementById('cpCoverColor').value;
+  liveUpdate();
+});
+document.getElementById('cpTintColor').addEventListener('input', () => {
+  const v = document.getElementById('cpTintColor').value;
+  document.getElementById('cpTintColorHex').textContent = v === '#FFFFFF' ? '#FFFFFF (none)' : v;
+  liveUpdate();
+});
+document.getElementById('cpPaperColor').addEventListener('input', () => {
+  document.getElementById('cpPaperColorHex').textContent = document.getElementById('cpPaperColor').value;
+  applyPaperColor(document.getElementById('cpPaperColor').value);
+});
+
+// Apply button: actually upload texture to the 3D book
+document.getElementById('cpApply').addEventListener('click', () => {
+  if (!coverDesignerReady) return;
+  applyTextureToBook();
+  document.getElementById('coverPanel').style.display = 'none';
+});
+
+
 </script>
 </body>
 </html>
