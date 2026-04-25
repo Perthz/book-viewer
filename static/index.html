@@ -148,11 +148,17 @@ function makeGradientTexture(top, bottom) {
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 5000);
 camera.position.set(0, 20, 60);
 
+// Keep OrbitControls only for zoom (wheel) and pan (right-drag); drag-to-rotate
+// is replaced below by directly rotating the book ("hold-and-turn" feel from
+// the biblio project).
 const orbitControls = new OrbitControls(camera, renderer.domElement);
 orbitControls.enableDamping = true;
 orbitControls.dampingFactor = 0.06;
 orbitControls.minDistance = 5;
 orbitControls.maxDistance = 500;
+orbitControls.enableRotate = false;        // we'll drive book rotation manually
+orbitControls.mouseButtons = { LEFT: null, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
+orbitControls.touches = { ONE: null, TWO: THREE.TOUCH.DOLLY_PAN };
 
 scene.add(new THREE.HemisphereLight(THEME.ambient.top, THEME.ambient.bottom, THEME.ambient.intensity));
 const key = new THREE.DirectionalLight(THEME.keyLight.color, THEME.keyLight.intensity);
@@ -229,20 +235,29 @@ function toggleOpen() {
 openBtn.addEventListener('click', toggleOpen);
 openSlider.addEventListener('input', () => setOpenAmount(parseInt(openSlider.value) / 100));
 
+// Two-level hierarchy:
+//   bookGroup (world-space rotator — drag rotates this around its own origin)
+//     └── pivotGroup (positioned so the geometry's bbox center sits at origin)
+//           └── gltf.scene
+let pivotGroup = null;
 const loader = new GLTFLoader();
 loader.load('./scene.gltf', (gltf) => {
   bookGroup = new THREE.Group();
+  pivotGroup = new THREE.Group();
+  bookGroup.add(pivotGroup);
   scene.add(bookGroup);
-  bookGroup.add(gltf.scene);
-  // SkinnedMesh frustum culling uses the bind-pose bounding sphere, which
-  // doesn't reflect our non-uniform/scale transforms — so the renderer can
-  // wrongly cull the book offscreen. Disable culling for these meshes.
+  pivotGroup.add(gltf.scene);
   gltf.scene.traverse((o) => { if (o.isMesh || o.isSkinnedMesh) o.frustumCulled = false; });
 
-  const measured = new THREE.Box3().setFromObject(gltf.scene).getSize(new THREE.Vector3());
+  // Measure gltf.scene at scale 1 (before applySize) — bbox here is in
+  // pivotGroup's local frame, so we can offset the pivot by -center to put
+  // the geometry's centroid on the rotation origin.
+  const measureBox = new THREE.Box3().setFromObject(gltf.scene);
+  const measured = measureBox.getSize(new THREE.Vector3());
+  const measuredLocalCenter = measureBox.getCenter(new THREE.Vector3());
   baseSize = { x: measured.x, y: measured.y, z: measured.z };
+  pivotGroup.position.copy(measuredLocalCenter).multiplyScalar(-1);
 
-  // Set up the open/close animation if present.
   if (gltf.animations && gltf.animations.length > 0) {
     mixer = new THREE.AnimationMixer(bookGroup);
     const clip = gltf.animations[0];
@@ -254,7 +269,7 @@ loader.load('./scene.gltf', (gltf) => {
   }
 
   applySize(DEFAULT_W, DEFAULT_H, DEFAULT_T);
-  console.log('[fit] baseSize=' + baseSize.x.toFixed(2) + ',' + baseSize.y.toFixed(2) + ',' + baseSize.z.toFixed(2));
+
   const fitBox = new THREE.Box3().setFromObject(bookGroup);
   const size = fitBox.getSize(new THREE.Vector3());
   const fitCenter = fitBox.getCenter(new THREE.Vector3());
@@ -271,6 +286,48 @@ loader.load('./scene.gltf', (gltf) => {
 }, undefined, (err) => {
   loading.textContent = 'Error: ' + err.message;
 });
+
+// ── Drag-to-rotate the book ("hold-and-turn") ─────────────────────────────
+// Left-button drag on the canvas rotates the bookGroup in its own local frame:
+//   horizontal drag → spin around world Y (yaw)
+//   vertical drag   → tilt around world X (pitch)
+// The rotations are absorbed into a parent rotator so the model's internal
+// animation/scale chain isn't disturbed. Pointer-driven target is eased toward
+// each frame for a soft, hand-held feel.
+const ROT_PER_PX = 0.008;            // radians of rotation per pixel of drag
+const ROT_EASE = 0.22;               // 0=no smoothing, 1=instant
+const targetRot = { x: 0, y: 0 };
+const currentRot = { x: 0, y: 0 };
+let dragging = false;
+let dragLastX = 0, dragLastY = 0;
+
+const cv = renderer.domElement;
+cv.style.touchAction = 'none';
+cv.addEventListener('pointerdown', (e) => {
+  if (e.button !== 0) return;
+  dragging = true;
+  dragLastX = e.clientX;
+  dragLastY = e.clientY;
+  cv.setPointerCapture(e.pointerId);
+});
+cv.addEventListener('pointermove', (e) => {
+  if (!dragging) return;
+  const dx = e.clientX - dragLastX;
+  const dy = e.clientY - dragLastY;
+  dragLastX = e.clientX;
+  dragLastY = e.clientY;
+  targetRot.y += dx * ROT_PER_PX;
+  targetRot.x += dy * ROT_PER_PX;
+  // Clamp pitch so the book doesn't somersault.
+  const PITCH_LIMIT = Math.PI / 2 - 0.05;
+  targetRot.x = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, targetRot.x));
+});
+cv.addEventListener('pointerup', (e) => {
+  if (!dragging) return;
+  dragging = false;
+  cv.releasePointerCapture(e.pointerId);
+});
+cv.addEventListener('pointercancel', () => { dragging = false; });
 
 function onSlider() {
   const w = parseFloat(sliders.w.value);
@@ -305,6 +362,13 @@ window.addEventListener('resize', () => {
 function animate() {
   requestAnimationFrame(animate);
   if (mixer) mixer.update(0); // animation time managed manually
+  // Ease current rotation toward pointer-driven target and apply to the book.
+  currentRot.x += (targetRot.x - currentRot.x) * ROT_EASE;
+  currentRot.y += (targetRot.y - currentRot.y) * ROT_EASE;
+  if (bookGroup) {
+    bookGroup.rotation.x = currentRot.x;
+    bookGroup.rotation.y = currentRot.y;
+  }
   orbitControls.update();
   renderer.render(scene, camera);
 }

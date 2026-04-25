@@ -332,6 +332,8 @@ loader.load(
       const geom = skinnedMesh.geometry;
 
       // Normalize UVs to [0,1] so uploaded images fill the full face without inset borders.
+      // Use ALL vertices' UV range as the reference so the cover UVs are expanded to fill [0,1].
+      // With ClampToEdgeWrapping this avoids sampling garbage at UV edges.
       const uvAttr = geom.attributes.uv;
       if (uvAttr) {
         const uvArr = uvAttr.array;
@@ -347,13 +349,6 @@ loader.load(
           uvArr[i + 1] = (uvArr[i + 1] - vMin) / vRange;
         }
         uvAttr.needsUpdate = true;
-        window.__uvRaw = { uMin, uMax, vMin, vMax, uNorm: uRange, vNorm: vRange };
-        window.__uvRawScale = {
-          uScale: 1 / uRange,
-          vScale: 1 / vRange,
-          uOffset: uMin / uRange,
-          vOffset: vMin / vRange,
-        };
       }
 
       // Map node IDs → material groups (joint indices from GLTF joints array)
@@ -570,12 +565,14 @@ function applyFrontCover(img) {
   currentTexture = new THREE.Texture(img);
   currentTexture.colorSpace = THREE.SRGBColorSpace;
   currentTexture.anisotropy = 8;
+  currentTexture.wrapS = THREE.ClampToEdgeWrapping;
+  currentTexture.wrapT = THREE.ClampToEdgeWrapping;
   currentTexture.needsUpdate = true;
 
   // Blue = front cover material group (to verify group assignment)
   const front = coverMesh._frontMat;
-  front.map = null;
-  front.color.set(0x0066ff);
+  front.map = currentTexture;
+  front.color.set(0xffffff);
   front.needsUpdate = true;
 
   for (const m of [coverMesh._backMat, coverMesh._spineMat]) {
