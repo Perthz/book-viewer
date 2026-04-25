@@ -82,11 +82,11 @@
   </div>
   <div class="rot-row">
     <div class="rot-label"><span>Flip Y</span><span><span id="rotYVal">0</span>°</span></div>
-    <input type="range" id="rotYSlider" min="0" max="360" step="1" value="0">
+    <input type="range" id="rotYSlider" min="-10000" max="10000" step="1" value="0">
   </div>
   <div class="rot-row">
     <div class="rot-label"><span>Flip Z</span><span><span id="rotZVal">0</span>°</span></div>
-    <input type="range" id="rotZSlider" min="0" max="360" step="1" value="0">
+    <input type="range" id="rotZSlider" min="-10000" max="10000" step="1" value="0">
   </div>
   <hr class="divider">
   <button id="resetBtn">Reset</button>
@@ -179,15 +179,46 @@ const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerH
 camera.position.set(0, 20, 60);
 
 // ── Controls ─────────────────────────────────────────────────────────────────
-// OrbitControls: left-drag rotates the camera around the book's center,
-// right-drag pans, scroll zooms. This makes the book appear to spin
-// in place (same feel as the note/ notebook viewer).
+// OrbitControls: left-drag would rotate the camera — but we use custom drag
+// to rotate the book in place (Y = horizontal drag, Z = vertical drag).
+// Right-drag pans, scroll zooms.
 const orbitControls = new OrbitControls(camera, renderer.domElement);
 orbitControls.enableDamping = true;
 orbitControls.dampingFactor = 0.06;
 orbitControls.minDistance = 5;
 orbitControls.maxDistance = 500;
 orbitControls.target.set(0, 0, 0);
+orbitControls.enableRotate = false; // book rotation is handled manually below
+
+// ── Book drag-to-rotate (Y and Z only) ─────────────────────────────────────
+let isDragging = false, lastX = 0, lastY = 0;
+
+renderer.domElement.addEventListener('mousedown', (e) => {
+  if (e.button !== 0) return; // left click only
+  isDragging = true;
+  lastX = e.clientX;
+  lastY = e.clientY;
+});
+
+window.addEventListener('mousemove', (e) => {
+  if (!isDragging) return;
+  const dx = e.clientX - lastX;
+  const dy = e.clientY - lastY;
+  lastX = e.clientX;
+  lastY = e.clientY;
+
+  // Horizontal drag → Z rotation
+  rotZSlider.value = parseInt(rotZSlider.value) + dx * 0.5;
+  // Vertical drag → Y rotation (inverted)
+  rotYSlider.value = parseInt(rotYSlider.value) - dy * 0.5;
+
+  rotYVal.textContent = Math.round(rotYSlider.value);
+  rotZVal.textContent = Math.round(rotZSlider.value);
+  applyRotation();
+});
+
+window.addEventListener('mouseup', () => { isDragging = false; });
+renderer.domElement.addEventListener('mouseleave', () => { isDragging = false; });
 
 scene.add(new THREE.HemisphereLight(THEME.ambient.top, THEME.ambient.bottom, THEME.ambient.intensity));
 const key = new THREE.DirectionalLight(THEME.keyLight.color, THEME.keyLight.intensity);
@@ -328,6 +359,7 @@ loader.load('./scene.gltf', (gltf) => {
 
   controls.style.display = 'block';
   loading.style.display = 'none';
+  applyDefaultPosition();
 }, undefined, (err) => {
   loading.textContent = 'Error: ' + err.message;
 });
@@ -391,6 +423,20 @@ function loadPositions() {
   });
 }
 loadPositions();
+
+function applyDefaultPosition() {
+  const stored = JSON.parse(localStorage.getItem('bookViewerPositions') || '[]');
+  const front = stored.find(p => p.name.toLowerCase() === 'front');
+  if (!front) return;
+  rotXSlider.value = front.rx;
+  rotYSlider.value = front.ry;
+  rotZSlider.value = front.rz;
+  rotXVal.textContent = front.rx;
+  rotYVal.textContent = front.ry;
+  rotZVal.textContent = front.rz;
+  applyRotation();
+  applyCameraState(front);
+}
 
 posSelect.addEventListener('change', () => {
   const idx = posSelect.value;
