@@ -43,6 +43,10 @@
     .anim-label { display: flex; justify-content: space-between; margin-bottom: 5px; }
     .anim-label span:first-child { color: #aaa; font-size: 0.72rem; }
     .anim-label span:last-child { color: #fff; font-weight: 600; font-size: 0.72rem; }
+    .rot-row { margin-bottom: 10px; }
+    .rot-label { display: flex; justify-content: space-between; margin-bottom: 4px; }
+    .rot-label span:first-child { color: #aaa; font-size: 0.72rem; }
+    .rot-label span:last-child { color: #fff; font-weight: 600; font-size: 0.72rem; }
   </style>
 </head>
 <body>
@@ -72,7 +76,27 @@
     <input type="range" id="openSlider" min="0" max="100" step="1" value="0">
   </div>
   <hr class="divider">
+  <div class="rot-row">
+    <div class="rot-label"><span>Flip X</span><span><span id="rotXVal">0</span>°</span></div>
+    <input type="range" id="rotXSlider" min="0" max="360" step="1" value="0">
+  </div>
+  <div class="rot-row">
+    <div class="rot-label"><span>Flip Y</span><span><span id="rotYVal">0</span>°</span></div>
+    <input type="range" id="rotYSlider" min="0" max="360" step="1" value="0">
+  </div>
+  <div class="rot-row">
+    <div class="rot-label"><span>Flip Z</span><span><span id="rotZVal">0</span>°</span></div>
+    <input type="range" id="rotZSlider" min="0" max="360" step="1" value="0">
+  </div>
+  <hr class="divider">
   <button id="resetBtn">Reset</button>
+  <div style="display:flex;align-items:center;gap:4px;margin-top:8px">
+    <select id="posSelect" style="flex:1;padding:5px 8px;border-radius:8px;border:1px solid #555;background:#222;color:#ccc;cursor:pointer">
+      <option value="">— Load position —</option>
+    </select>
+    <button class="btn anim-btn" id="savePosBtn">Save</button>
+    <button class="btn anim-btn" id="delPosBtn" style="background:#4a2020">🗑</button>
+  </div>
 </div>
 
 <script type="importmap">
@@ -117,6 +141,12 @@ const vals = {
 const openSlider = document.getElementById('openSlider');
 const openVal = document.getElementById('openVal');
 const openBtn = document.getElementById('openBtn');
+const rotXSlider = document.getElementById('rotXSlider');
+const rotYSlider = document.getElementById('rotYSlider');
+const rotZSlider = document.getElementById('rotZSlider');
+const rotXVal = document.getElementById('rotXVal');
+const rotYVal = document.getElementById('rotYVal');
+const rotZVal = document.getElementById('rotZVal');
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -148,17 +178,16 @@ function makeGradientTexture(top, bottom) {
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 5000);
 camera.position.set(0, 20, 60);
 
-// Keep OrbitControls only for zoom (wheel) and pan (right-drag); drag-to-rotate
-// is replaced below by directly rotating the book ("hold-and-turn" feel from
-// the biblio project).
+// ── Controls ─────────────────────────────────────────────────────────────────
+// OrbitControls: left-drag rotates the camera around the book's center,
+// right-drag pans, scroll zooms. This makes the book appear to spin
+// in place (same feel as the note/ notebook viewer).
 const orbitControls = new OrbitControls(camera, renderer.domElement);
 orbitControls.enableDamping = true;
 orbitControls.dampingFactor = 0.06;
 orbitControls.minDistance = 5;
 orbitControls.maxDistance = 500;
-orbitControls.enableRotate = false;        // we'll drive book rotation manually
-orbitControls.mouseButtons = { LEFT: null, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
-orbitControls.touches = { ONE: null, TWO: THREE.TOUCH.DOLLY_PAN };
+orbitControls.target.set(0, 0, 0);
 
 scene.add(new THREE.HemisphereLight(THEME.ambient.top, THEME.ambient.bottom, THEME.ambient.intensity));
 const key = new THREE.DirectionalLight(THEME.keyLight.color, THEME.keyLight.intensity);
@@ -170,8 +199,8 @@ rim.position.set(...THEME.rimLight.pos); scene.add(rim);
 
 const DEFAULT_W = 14, DEFAULT_H = 21, DEFAULT_T = 2;
 
-let bookGroup = null;
 let baseSize = { x: 1, y: 1, z: 1 };
+let bookGroup = null;
 let mixer = null;
 let animAction = null;
 let animDuration = 0;
@@ -188,7 +217,6 @@ function applySize(wCm, hCm, tCm) {
   // ratio is preserved).
   const s = hCm / baseSize.y;
   bookGroup.scale.set(s, s, s);
-  sitOnGround();
 }
 
 function sitOnGround() {
@@ -203,7 +231,6 @@ function setOpenAmount(t) {
   openAmount = Math.max(0, Math.min(1, t));
   animAction.time = openAmount * animDuration;
   mixer.update(0);
-  sitOnGround();
   openSlider.value = Math.round(openAmount * 100);
   openVal.textContent = Math.round(openAmount * 100);
   openBtn.textContent = isOpen ? 'Close Book' : 'Open Book';
@@ -235,28 +262,48 @@ function toggleOpen() {
 openBtn.addEventListener('click', toggleOpen);
 openSlider.addEventListener('input', () => setOpenAmount(parseInt(openSlider.value) / 100));
 
+function applyRotation() {
+  if (!bookGroup) return;
+  // Base orientation: book stands upright (rotation.x = -PI/2)
+  // Slider rotations are additive on top of that.
+  bookGroup.rotation.x = -Math.PI / 2 + (parseInt(rotXSlider.value) / 180) * Math.PI;
+  bookGroup.rotation.y = (parseInt(rotYSlider.value) / 180) * Math.PI;
+  bookGroup.rotation.z = (parseInt(rotZSlider.value) / 180) * Math.PI;
+}
+
+function onRotSlider() {
+  rotXVal.textContent = rotXSlider.value;
+  rotYVal.textContent = rotYSlider.value;
+  rotZVal.textContent = rotZSlider.value;
+  applyRotation();
+}
+
+rotXSlider.addEventListener('input', onRotSlider);
+rotYSlider.addEventListener('input', onRotSlider);
+rotZSlider.addEventListener('input', onRotSlider);
+
 // Two-level hierarchy:
-//   bookGroup (world-space rotator — drag rotates this around its own origin)
-//     └── pivotGroup (positioned so the geometry's bbox center sits at origin)
-//           └── gltf.scene
-let pivotGroup = null;
+//   bookGroup (world-space container)
+//     └── gltf.scene
 const loader = new GLTFLoader();
 loader.load('./scene.gltf', (gltf) => {
   bookGroup = new THREE.Group();
-  pivotGroup = new THREE.Group();
-  bookGroup.add(pivotGroup);
   scene.add(bookGroup);
-  pivotGroup.add(gltf.scene);
+  bookGroup.add(gltf.scene);
   gltf.scene.traverse((o) => { if (o.isMesh || o.isSkinnedMesh) o.frustumCulled = false; });
 
-  // Measure gltf.scene at scale 1 (before applySize) — bbox here is in
-  // pivotGroup's local frame, so we can offset the pivot by -center to put
-  // the geometry's centroid on the rotation origin.
+  // Stand the book upright: model's Z axis → world Y (up).
+  // applyRotation() below will set the full rotation (base + slider offsets).
+
+  // Measure intrinsic size at scale 1 so cm sliders map to scene units.
   const measureBox = new THREE.Box3().setFromObject(gltf.scene);
   const measured = measureBox.getSize(new THREE.Vector3());
-  const measuredLocalCenter = measureBox.getCenter(new THREE.Vector3());
   baseSize = { x: measured.x, y: measured.y, z: measured.z };
-  pivotGroup.position.copy(measuredLocalCenter).multiplyScalar(-1);
+
+  // Center the book at world origin so OrbitControls.target = (0,0,0) is correct.
+  const box = new THREE.Box3().setFromObject(bookGroup);
+  const center = box.getCenter(new THREE.Vector3());
+  bookGroup.position.sub(center);
 
   if (gltf.animations && gltf.animations.length > 0) {
     mixer = new THREE.AnimationMixer(bookGroup);
@@ -269,16 +316,14 @@ loader.load('./scene.gltf', (gltf) => {
   }
 
   applySize(DEFAULT_W, DEFAULT_H, DEFAULT_T);
+  applyRotation(); // set initial orientation (upright + any slider defaults)
 
-  const fitBox = new THREE.Box3().setFromObject(bookGroup);
-  const size = fitBox.getSize(new THREE.Vector3());
-  const fitCenter = fitBox.getCenter(new THREE.Vector3());
-  const maxDim = Math.max(size.x, size.y, size.z);
-  const dist = maxDim / (2 * Math.tan((camera.fov * Math.PI / 180) / 2)) * 1.0;
-  // Default front-cover view: 3/4 angle from above-front-right.
-  camera.position.set(fitCenter.x + dist * 0.25, fitCenter.y + dist * 0.45, fitCenter.z + dist * 0.85);
-  camera.lookAt(fitCenter);
-  orbitControls.target.copy(fitCenter);
+  // Camera positioned to frame the book nicely — OrbitControls orbits around (0,0,0).
+  const maxDim = Math.max(baseSize.x, baseSize.y, baseSize.z);
+  const dist = maxDim / (2 * Math.tan((camera.fov * Math.PI / 180) / 2)) * 2.2;
+  camera.position.set(dist * 0.5, dist * 0.35, dist);
+  camera.lookAt(0, 0, 0);
+  orbitControls.target.set(0, 0, 0);
   orbitControls.update();
 
   controls.style.display = 'block';
@@ -286,55 +331,6 @@ loader.load('./scene.gltf', (gltf) => {
 }, undefined, (err) => {
   loading.textContent = 'Error: ' + err.message;
 });
-
-// ── Drag-to-rotate the book ("hold-and-turn") ─────────────────────────────
-// Left-button drag on the canvas rotates the bookGroup in its own local frame:
-//   horizontal drag → spin around world Y (yaw)
-//   vertical drag   → tilt around world X (pitch)
-// The rotations are absorbed into a parent rotator so the model's internal
-// animation/scale chain isn't disturbed. Pointer-driven target is eased toward
-// each frame for a soft, hand-held feel.
-const ROT_PER_PX = 0.008;            // radians of rotation per pixel of drag
-const ROT_EASE = 0.22;               // 0=no smoothing, 1=instant
-const targetRot = { x: 0, y: 0 };
-const currentRot = { x: 0, y: 0 };
-let dragging = false;
-let dragLastX = 0, dragLastY = 0;
-
-const cv = renderer.domElement;
-cv.style.touchAction = 'none';
-const PITCH_LIMIT = Math.PI / 2 - 0.05;
-
-// Attach pointerdown to the canvas only; move/up live on the window so the
-// drag survives even if the pointer leaves the canvas (or the controls panel
-// briefly steals capture).
-cv.addEventListener('pointerdown', (e) => {
-  if (e.button !== 0) return;
-  // Don't grab drags that originated on UI elements layered over the canvas.
-  const path = e.composedPath();
-  for (const el of path) {
-    if (el === cv) break;
-    if (el && el.nodeType === 1 && el.id && (el.id === 'controls' || el.closest && el.closest('#controls'))) return;
-  }
-  dragging = true;
-  dragLastX = e.clientX;
-  dragLastY = e.clientY;
-  e.preventDefault();
-});
-
-window.addEventListener('pointermove', (e) => {
-  if (!dragging) return;
-  const dx = e.clientX - dragLastX;
-  const dy = e.clientY - dragLastY;
-  dragLastX = e.clientX;
-  dragLastY = e.clientY;
-  targetRot.y += dx * ROT_PER_PX;
-  targetRot.x += dy * ROT_PER_PX;
-  targetRot.x = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, targetRot.x));
-});
-
-window.addEventListener('pointerup', () => { dragging = false; });
-window.addEventListener('pointercancel', () => { dragging = false; });
 
 function onSlider() {
   const w = parseFloat(sliders.w.value);
@@ -356,8 +352,85 @@ document.getElementById('resetBtn').addEventListener('click', () => {
   sliders.t.value = DEFAULT_T;
   onSlider();
   setOpenAmount(0);
+  rotXSlider.value = 0; rotYSlider.value = 0; rotZSlider.value = 0;
+  rotXVal.textContent = '0'; rotYVal.textContent = '0'; rotZVal.textContent = '0';
+  applyRotation();
   isOpen = false;
   animating = false;
+});
+
+// ── Position Save / Load ───────────────────────────────────────────
+const posSelect  = document.getElementById('posSelect');
+const savePosBtn = document.getElementById('savePosBtn');
+const delPosBtn  = document.getElementById('delPosBtn');
+
+function getCameraState() {
+  return {
+    px: camera.position.x, py: camera.position.y, pz: camera.position.z,
+    tx: orbitControls.target.x, ty: orbitControls.target.y, tz: orbitControls.target.z,
+    fov: camera.fov,
+  };
+}
+
+function applyCameraState(s) {
+  camera.position.set(s.px, s.py, s.pz);
+  orbitControls.target.set(s.tx, s.ty, s.tz);
+  camera.fov = s.fov;
+  camera.updateProjectionMatrix();
+  orbitControls.update();
+}
+
+function loadPositions() {
+  const stored = JSON.parse(localStorage.getItem('bookViewerPositions') || '[]');
+  posSelect.innerHTML = '<option value="">— Load position —</option>';
+  stored.forEach((p, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = p.name;
+    posSelect.appendChild(opt);
+  });
+}
+loadPositions();
+
+posSelect.addEventListener('change', () => {
+  const idx = posSelect.value;
+  if (idx === '') return;
+  const stored = JSON.parse(localStorage.getItem('bookViewerPositions') || '[]');
+  const p = stored[idx];
+  if (!p) return;
+  rotXSlider.value = p.rx;
+  rotYSlider.value = p.ry;
+  rotZSlider.value = p.rz;
+  rotXVal.textContent = p.rx;
+  rotYVal.textContent = p.ry;
+  rotZVal.textContent = p.rz;
+  applyRotation();
+  applyCameraState(p);
+  posSelect.value = '';
+});
+
+savePosBtn.addEventListener('click', () => {
+  const name = prompt('Position name:');
+  if (!name || !name.trim()) return;
+  const stored = JSON.parse(localStorage.getItem('bookViewerPositions') || '[]');
+  stored.push({
+    name: name.trim(),
+    rx: parseInt(rotXSlider.value),
+    ry: parseInt(rotYSlider.value),
+    rz: parseInt(rotZSlider.value),
+    ...getCameraState(),
+  });
+  localStorage.setItem('bookViewerPositions', JSON.stringify(stored));
+  loadPositions();
+});
+
+delPosBtn.addEventListener('click', () => {
+  const idx = posSelect.value;
+  if (idx === '') { alert('Pick a position to delete first.'); return; }
+  const stored = JSON.parse(localStorage.getItem('bookViewerPositions') || '[]');
+  stored.splice(idx, 1);
+  localStorage.setItem('bookViewerPositions', JSON.stringify(stored));
+  loadPositions();
 });
 
 window.addEventListener('resize', () => {
@@ -369,13 +442,6 @@ window.addEventListener('resize', () => {
 function animate() {
   requestAnimationFrame(animate);
   if (mixer) mixer.update(0); // animation time managed manually
-  // Ease current rotation toward pointer-driven target and apply to the book.
-  currentRot.x += (targetRot.x - currentRot.x) * ROT_EASE;
-  currentRot.y += (targetRot.y - currentRot.y) * ROT_EASE;
-  if (bookGroup) {
-    bookGroup.rotation.x = currentRot.x;
-    bookGroup.rotation.y = currentRot.y;
-  }
   orbitControls.update();
   renderer.render(scene, camera);
 }
