@@ -379,18 +379,15 @@ loader.load(
         return 3;
       };
 
-      // Triangle bucketing by dominant vertex group (majority vote, not strict agreement).
+      // Triangle bucketing: STRICT — all three vertices must agree on the group,
+      // otherwise the triangle goes to pages. Majority voting let cover-edge
+      // triangles spill colour onto the page block; strict classification keeps
+      // each material region clean.
       const buckets = [[], [], [], []];
       for (let i = 0; i < index.length; i += 3) {
         const a = index[i], b = index[i + 1], c = index[i + 2];
         const ga = vertGroup(a), gb = vertGroup(b), gc = vertGroup(c);
-        const groups = [ga, gb, gc];
-        let g = ga;
-        let count = (ga === g) + (gb === g) + (gc === g);
-        for (const h of [gb, gc]) {
-          const c2 = (ga === h) + (gb === h) + (gc === h);
-          if (c2 > count) { g = h; count = c2; }
-        }
+        const g = (ga === gb && gb === gc) ? ga : 3;
         buckets[g].push(a, b, c);
       }
 
@@ -412,7 +409,8 @@ loader.load(
       backMat.color.set(0x00ff00);
       spineMat.color.set(0x9900ff);
       pageMat.color.set(0xf5f1e8);
-      pageMat.emissive?.set(0x6b6860);
+      pageMat.map = null;
+      pageMat.emissive?.set(0x000000);   // no emissive — keeps paper a flat cream
       pageMat.side = THREE.DoubleSide;
       skinnedMesh.material = [frontMat, backMat, spineMat, pageMat];
       coverMesh = skinnedMesh;
@@ -420,6 +418,7 @@ loader.load(
       coverMesh._frontMat = frontMat;
       coverMesh._backMat  = backMat;
       coverMesh._spineMat = spineMat;
+      coverMesh._pageMat  = pageMat;
 
     }
 
@@ -578,6 +577,13 @@ function applyFrontCover(img) {
     m.map = null;
     m.color.copy(edge);
     m.needsUpdate = true;
+  }
+  // Pages are paper — never tinted by the cover image, never textured.
+  if (coverMesh._pageMat) {
+    coverMesh._pageMat.map = null;
+    coverMesh._pageMat.color.set(0xf5f1e8);
+    coverMesh._pageMat.emissive?.set(0x000000);
+    coverMesh._pageMat.needsUpdate = true;
   }
 
   // Lock book aspect ratio to the image.
