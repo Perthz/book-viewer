@@ -351,16 +351,14 @@ loader.load(
         uvAttr.needsUpdate = true;
       }
 
-      // Map node IDs → material groups (joint indices from GLTF joints array)
-      const joints = gltf.skins[0].joints; // [5, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-      const nodeGroupOf = (nodeId) => {
-        const n = (skinnedMesh.skeleton.bones.find(b => b.index === nodeId)?.name || '').toLowerCase();
-        if (n.startsWith('kaft_r')) return 0; // front cover
-        if (n.startsWith('kaft_l')) return 1; // back cover
-        if (n.startsWith('stam'))   return 2; // spine
-        return 3;                              // pages / other
-      };
-      const jointGroup = joints.map(ji => nodeGroupOf(ji)); // [group per joint]
+      // Map joint array indices → material groups directly (no skeleton lookup needed).
+      // Joints per GLTF skin: [node5, node7, node8, node9, node10, node11, node12, node13, node14, node15]
+      //   joints[2] = node8  (kaft_R_01) = front cover → group 0
+      //   joints[3] = node9  (kaft_L_02) = back cover  → group 1
+      //   joints[1] = node7  (stam_00)   = spine       → group 2
+      //   all others                       = pages     → group 3
+      // Hardcoded: jointIdx → group (avoiding any skeleton.bones.find() issues)
+      const hardcodedGroup = [3, 2, 0, 1, 3, 3, 3, 3, 3, 3]; // index matches joints array
 
       const skinIndex  = geom.attributes.skinIndex.array;
       const skinWeight = geom.attributes.skinWeight.array;
@@ -368,16 +366,17 @@ loader.load(
 
       // Dominant group of a vertex = highest summed bone weight among the 4 buckets.
       const vertGroup = (vi) => {
-        const w = [0, 0, 0, 0];
+        const w = [0.0, 0.0, 0.0, 0.0];
         for (let k = 0; k < 4; k++) {
-          const ji = skinIndex[vi * 4 + k];     // joint array index
+          const ji = skinIndex[vi * 4 + k];     // joint array index (0-9)
           const wt = skinWeight[vi * 4 + k];
-          const g = jointGroup[ji] ?? 3;
+          const g = hardcodedGroup[ji] ?? 3;
           w[g] += wt;
         }
-        return w[0] >= w[1] && w[0] >= w[2] && w[0] >= w[3] ? 0 :
-               w[1] >= w[2] && w[1] >= w[3] ? 1 :
-               w[2] >= w[3] ? 2 : 3;
+        if (w[0] >= w[1] && w[0] >= w[2] && w[0] >= w[3]) return 0;
+        if (w[1] >= w[2] && w[1] >= w[3]) return 1;
+        if (w[2] >= w[3]) return 2;
+        return 3;
       };
 
       // Triangle bucketing by dominant vertex group (majority vote, not strict agreement).
