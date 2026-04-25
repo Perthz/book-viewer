@@ -234,6 +234,10 @@ loader.load('./scene.gltf', (gltf) => {
   bookGroup = new THREE.Group();
   scene.add(bookGroup);
   bookGroup.add(gltf.scene);
+  // SkinnedMesh frustum culling uses the bind-pose bounding sphere, which
+  // doesn't reflect our non-uniform/scale transforms — so the renderer can
+  // wrongly cull the book offscreen. Disable culling for these meshes.
+  gltf.scene.traverse((o) => { if (o.isMesh || o.isSkinnedMesh) o.frustumCulled = false; });
 
   const measured = new THREE.Box3().setFromObject(gltf.scene).getSize(new THREE.Vector3());
   baseSize = { x: measured.x, y: measured.y, z: measured.z };
@@ -255,21 +259,11 @@ loader.load('./scene.gltf', (gltf) => {
   const size = fitBox.getSize(new THREE.Vector3());
   const fitCenter = fitBox.getCenter(new THREE.Vector3());
   const maxDim = Math.max(size.x, size.y, size.z);
-  const dist = maxDim / (2 * Math.tan((camera.fov * Math.PI / 180) / 2)) * 1.4;
-  console.log('[fit] scaledSize=' + size.x.toFixed(2) + ',' + size.y.toFixed(2) + ',' + size.z.toFixed(2) + ' center=' + fitCenter.x.toFixed(2) + ',' + fitCenter.y.toFixed(2) + ',' + fitCenter.z.toFixed(2));
-  // Center the book on origin
-  bookGroup.position.x -= fitCenter.x;
-  bookGroup.position.z -= fitCenter.z;
-  bookGroup.position.y -= fitCenter.y;
-  sitOnGround();
-  const finalCenter = new THREE.Box3().setFromObject(bookGroup).getCenter(new THREE.Vector3());
-  // Default view: front cover, looking along -Z so the X×Y face (the largest,
-  // i.e. the cover) fills the viewport. Slight downward tilt avoids gimbal lock.
-  const camDist = Math.max(size.x, size.y) * 1.4;
-  console.log('[fit] finalCenter=' + finalCenter.x.toFixed(2) + ',' + finalCenter.y.toFixed(2) + ',' + finalCenter.z.toFixed(2) + ' camDist=' + camDist.toFixed(2));
-  camera.position.set(finalCenter.x, finalCenter.y + camDist * 0.15, finalCenter.z + camDist);
-  camera.lookAt(finalCenter);
-  orbitControls.target.copy(finalCenter);
+  const dist = maxDim / (2 * Math.tan((camera.fov * Math.PI / 180) / 2)) * 1.0;
+  // Default front-cover view: 3/4 angle from above-front-right.
+  camera.position.set(fitCenter.x + dist * 0.25, fitCenter.y + dist * 0.45, fitCenter.z + dist * 0.85);
+  camera.lookAt(fitCenter);
+  orbitControls.target.copy(fitCenter);
   orbitControls.update();
 
   controls.style.display = 'block';

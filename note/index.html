@@ -413,10 +413,10 @@ loader.load(
       const backMat  = originalMat.clone();
       const spineMat = originalMat.clone();
       const pageMat  = originalMat.clone();
-      // Debug colors: front=red, back=green, spine=blue, pages=cream
-      frontMat.color.set(0xff0000);
+      // Debug colors: front=blue, back=green, spine=purple, pages=cream
+      frontMat.color.set(0x0066ff);
       backMat.color.set(0x00ff00);
-      spineMat.color.set(0x0000ff);
+      spineMat.color.set(0x9900ff);
       pageMat.color.set(0xf5f1e8);
       pageMat.emissive?.set(0x6b6860);
       pageMat.side = THREE.DoubleSide;
@@ -572,17 +572,11 @@ function applyFrontCover(img) {
   currentTexture.anisotropy = 8;
   currentTexture.needsUpdate = true;
 
+  // Blue = front cover material group (to verify group assignment)
   const front = coverMesh._frontMat;
-  front.map = currentTexture;
-  front.color.set(0xffffff);
+  front.map = null;
+  front.color.set(0x0066ff);
   front.needsUpdate = true;
-
-  // Show UV scale in the debug div so we can confirm it's set
-  const uvDebug = document.getElementById('uvDebug');
-  const scale = window.__uvRawScale;
-  if (uvDebug && scale) {
-    uvDebug.textContent = 'UV norm: u[' + scale.uOffset.toFixed(4) + '-' + (scale.uOffset + 1/scale.uScale).toFixed(4) + '] v[' + scale.vOffset.toFixed(4) + '-' + (scale.vOffset + 1/scale.vScale).toFixed(4) + ']';
-  }
 
   for (const m of [coverMesh._backMat, coverMesh._spineMat]) {
     m.map = null;
