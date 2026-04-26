@@ -957,18 +957,10 @@ function paintFront(d) {
     const visAspect = w / visH;
 
     if (frontImageBitmap) {
-      const iaspect = frontImageBitmap.width / frontImageBitmap.height;
-      let sx, sy, sw, sh;
-      if (iaspect > visAspect) {
-        // image wider than the visible face — crop sides
-        sh = frontImageBitmap.height; sw = sh * visAspect;
-        sx = (frontImageBitmap.width - sw) / 2; sy = 0;
-      } else {
-        // image taller — crop top/bottom
-        sw = frontImageBitmap.width; sh = sw / visAspect;
-        sx = 0; sy = (frontImageBitmap.height - sh) / 2;
-      }
-      ctx.drawImage(frontImageBitmap, sx, sy, sw, sh, r.x0, visY0, w, visH);
+      // Map the entire source image to the visible face rect (visY0→y1).
+      // Drawing from r.y0 puts the top of the image in the hidden inner-liner
+      // area (y0→visY0), which crops the header off the rendered face.
+      ctx.drawImage(frontImageBitmap, 0, 0, frontImageBitmap.width, frontImageBitmap.height, r.x0, visY0, w, visH);
       return; // image fills the visible front cover, no frame/text
     }
 
