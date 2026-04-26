@@ -783,11 +783,10 @@ const REGIONS = {
   back:         { x0:  800, y0: 1224, x1: 1420, y1: 2048, color: '#3CFA82', label: 'BACK',      flipX: true,  flipY: false, visY0: 1224 },
   // Paper region — extends full designer width including over content-U.
   paperEdges:   { x0:    0, y0:  150, x1: 1990, y1:  500, color: '#BBBBBB', label: 'PAPER',     flipX: false, flipY: false },
-  // Page content fills the black area between paper bottom (y=500) and cover top
-  // (y=1224). Split into upper/lower halves. Both are mirror+upside-down on the
-  // rendered surface, same as the cover segments (flipX + flipY).
-  contentUpper: { x0:    0, y0:  500, x1: 1430, y1:  862, color: '#FF8800', label: 'CONTENT-U', flipX: true,  flipY: true },
-  contentLower: { x0:    0, y0:  862, x1: 1430, y1: 1224, color: '#9933FF', label: 'CONTENT-L', flipX: true,  flipY: true },
+  // Page content — right column (x=[1430,1990]), split equally from paper bottom
+  // (y=500) to texture bottom (y=2048). Mirror + upside-down on the rendered face.
+  contentUpper: { x0: 1430, y0:  500, x1: 1990, y1: 1274, color: '#FF8800', label: 'CONTENT-U', flipX: true,  flipY: true },
+  contentLower: { x0: 1430, y0: 1274, x1: 1990, y1: 2048, color: '#9933FF', label: 'CONTENT-L', flipX: true,  flipY: true },
 };
 
 // ── State container (serializable design) ───────────────────────────────────
@@ -1210,6 +1209,10 @@ function rebuildTexture() {
   if (document.getElementById('cpShowZones').checked) {
     paintCalibrationOverlay();
   } else {
+    // Inner cover (x=[0,1430], y=[500,1224]): fill with front cover dominant color
+    // so the inner liner doesn't show black when the book is opened.
+    texCtx.fillStyle = d.front.color;
+    texCtx.fillRect(0, 500, 1430, 724);
     paintPaperEdges(d);
     paintBookContent(d);
     paintBack(d);
