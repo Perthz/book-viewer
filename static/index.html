@@ -306,6 +306,7 @@
     <button class="cp-secondary" id="cpDownloadJSON">Download JSON</button>
     <button class="cp-secondary" id="cpLoadEpub">Load .epub…</button>
     <input type="file" id="cpEpubInput" accept=".epub" style="display:none">
+    <button class="cp-secondary" id="cpCopyCalib">Copy calibration</button>
     <button class="cp-secondary" id="cpClose">Close</button>
   </div>
 </div>
@@ -796,8 +797,9 @@ const REGIONS = {
   back:         { x0:  800, y0: 1224, x1: 1420, y1: 2048, color: '#3CFA82', label: 'BACK',      flipX: true,  flipY: false, visY0: 1224 },
   // Paper region — extends full designer width including over content-U.
   paperEdges:   { x0:    0, y0:  150, x1: 1990, y1:  500, color: '#BBBBBB', label: 'PAPER',     flipX: false, flipY: false },
-  // Page content — right column (x=[1430,1990]), split equally from paper bottom
-  // (y=500) to texture bottom (y=2048). Mirror + upside-down on the rendered face.
+  // Inner cover liner — visible when book is open, left of the page content.
+  innerCover:   { x0:    0, y0:  500, x1: 1430, y1: 1224, color: '#888888', label: 'INNER',     flipX: false, flipY: false },
+  // Page content — right column, split equally from paper bottom to texture bottom.
   // GPU UV for these pages is x-mirrored only (no y-inversion) → flipX only.
   contentUpper: { x0: 1430, y0:  500, x1: 2048, y1: 1274, color: '#FF8800', label: 'CONTENT-U', flipX: true,  flipY: false },
   contentLower: { x0: 1430, y0: 1274, x1: 2048, y1: 2048, color: '#9933FF', label: 'CONTENT-L', flipX: true,  flipY: false },
@@ -1238,11 +1240,11 @@ function rebuildTexture() {
   if (document.getElementById('cpShowZones').checked) {
     paintCalibrationOverlay();
   } else {
-    // Inner cover liner (x=[0,1430], y=[500,1224]): fills the area visible
-    // when the book is open. Use inner color, or sync to front cover color.
+    // Inner cover liner — use REGIONS.innerCover for its current calibrated bounds.
     const innerColor = (d.inner && !d.inner.sync) ? d.inner.color : d.front.color;
+    const ic = REGIONS.innerCover;
     texCtx.fillStyle = innerColor;
-    texCtx.fillRect(0, 500, 1430, 724);
+    texCtx.fillRect(ic.x0, ic.y0, ic.x1 - ic.x0, ic.y1 - ic.y0);
     paintPaperEdges(d);
     paintBookContent(d);
     paintBack(d);
@@ -1318,6 +1320,19 @@ document.getElementById('coverDesignerBtn').addEventListener('click', async () =
 document.getElementById('cpClose').addEventListener('click', () => {
   document.getElementById('coverPanel').style.display = 'none';
 });
+document.getElementById('cpCopyCalib').addEventListener('click', () => {
+  const out = {};
+  for (const [k, r] of Object.entries(REGIONS)) {
+    out[k] = { x0: r.x0, y0: r.y0, x1: r.x1, y1: r.y1 };
+    if (r.visY0 != null) out[k].visY0 = r.visY0;
+  }
+  const text = JSON.stringify(out, null, 2);
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('cpCopyCalib');
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = 'Copy calibration'; }, 2000);
+  });
+});
 
 // Tabs
 // ── Draggable UV region boundaries ──────────────────────────────────────────
@@ -1347,15 +1362,18 @@ document.getElementById('cpClose').addEventListener('click', () => {
   })();
 
   // Each draggable edge: axis, coord getter, and which fields to update.
+  // Paper bottom and content-U/inner-cover tops are decoupled so each
+  // region can be sized independently.
   function edges() {
     return [
       { axis:'x', get:()=>REGIONS.front.x1,        set:(v)=>{ REGIONS.front.x1=v; REGIONS.spine.x0=v; } },
       { axis:'x', get:()=>REGIONS.spine.x1,         set:(v)=>{ REGIONS.spine.x1=v; REGIONS.back.x0=v; } },
-      { axis:'x', get:()=>REGIONS.back.x1,          set:(v)=>{ REGIONS.back.x1=v; REGIONS.contentUpper.x0=v; REGIONS.contentLower.x0=v; } },
+      { axis:'x', get:()=>REGIONS.back.x1,          set:(v)=>{ REGIONS.back.x1=v; REGIONS.innerCover.x1=v; REGIONS.contentUpper.x0=v; REGIONS.contentLower.x0=v; } },
       { axis:'y', get:()=>REGIONS.paperEdges.y0,    set:(v)=>{ REGIONS.paperEdges.y0=v; } },
-      { axis:'y', get:()=>REGIONS.paperEdges.y1,    set:(v)=>{ REGIONS.paperEdges.y1=v; REGIONS.contentUpper.y0=v; } },
+      { axis:'y', get:()=>REGIONS.paperEdges.y1,    set:(v)=>{ REGIONS.paperEdges.y1=v; } },
+      { axis:'y', get:()=>REGIONS.innerCover.y0,    set:(v)=>{ REGIONS.innerCover.y0=v; REGIONS.contentUpper.y0=v; REGIONS.contentLower.y0=v; } },
       { axis:'y', get:()=>REGIONS.contentUpper.y1,  set:(v)=>{ REGIONS.contentUpper.y1=v; REGIONS.contentLower.y0=v; } },
-      { axis:'y', get:()=>REGIONS.front.y0,         set:(v)=>{ ['front','spine','back'].forEach(k=>{ REGIONS[k].y0=v; REGIONS[k].visY0=v; }); } },
+      { axis:'y', get:()=>REGIONS.front.y0,         set:(v)=>{ ['front','spine','back'].forEach(k=>{ REGIONS[k].y0=v; REGIONS[k].visY0=v; }); REGIONS.innerCover.y1=v; } },
     ];
   }
 
