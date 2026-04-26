@@ -767,14 +767,16 @@ let frontImageData = null;                 // base64 data URL (persisted in desi
 // during calibration by reading which corner letter (TL/TR/BL/BR) lands where.
 const REGIONS = {
   // Cover trio tiles edge-to-edge across the bottom-half of the texture.
-  // Layout (canvas-X order):  FRONT | SPINE | BACK  — verified empirically
-  // by reading the calibration colors off the rendered closed book. The GPU
-  // samples canvas-LEFT onto the visible front face (because of the cover
-  // mesh's UV winding for this glTF).
-  front:        { x0:    0, y0: 1100, x1:  620, y1: 2048, color: '#5A8CFF', label: 'FRONT',     flipX: true,  flipY: false },
-  spine:        { x0:  620, y0: 1100, x1:  800, y1: 2048, color: '#FFC81E', label: 'SPINE',     flipX: true,  flipY: false },
-  back:         { x0:  800, y0: 1100, x1: 1500, y1: 2048, color: '#3CFA82', label: 'BACK',      flipX: true,  flipY: false },
-  paperEdges:   { x0:    0, y0:  280, x1: 1430, y1:  380, color: '#BBBBBB', label: 'PAPER',     flipX: false, flipY: false },
+  // Layout (canvas-X order):  FRONT | SPINE | BACK  — verified empirically.
+  // `visY0` = where the visible face actually starts in canvas-y coords (the
+  // top portion of each rect maps to inner-cover/liner, hidden when closed).
+  // The calibration painter places TL/TR labels at visY0 so all four corners
+  // are visible on the rendered face.
+  front:        { x0:    0, y0: 1100, x1:  620, y1: 2048, color: '#5A8CFF', label: 'FRONT',     flipX: true,  flipY: false, visY0: 1224 },
+  spine:        { x0:  620, y0: 1100, x1:  800, y1: 2048, color: '#FFC81E', label: 'SPINE',     flipX: true,  flipY: false, visY0: 1224 },
+  back:         { x0:  800, y0: 1100, x1: 1500, y1: 2048, color: '#3CFA82', label: 'BACK',      flipX: true,  flipY: false, visY0: 1224 },
+  // Paper region — extended Y range per user feedback (was y[280,380]).
+  paperEdges:   { x0:    0, y0:  150, x1: 1430, y1:  500, color: '#BBBBBB', label: 'PAPER',     flipX: false, flipY: false },
   contentUpper: { x0: 1430, y0:  460, x1: 1990, y1: 1280, color: '#FF8800', label: 'CONTENT-U', flipX: false, flipY: false },
   contentLower: { x0: 1430, y0: 1290, x1: 1990, y1: 1985, color: '#9933FF', label: 'CONTENT-L', flipX: false, flipY: false },
 };
@@ -936,39 +938,46 @@ function paintRegion(regionKey, paintFn) {
 function paintFront(d) {
   paintRegion('front', (ctx, r) => {
     const w = r.x1 - r.x0, h = r.y1 - r.y0;
+    // Base color fills the WHOLE bbox (incl. inner-cover area above visY0) so
+    // there's no black border anywhere. Images and text only target the
+    // visible face area below.
     ctx.fillStyle = d.front.color;
     ctx.fillRect(r.x0, r.y0, w, h);
 
+    const visY0 = r.visY0 != null ? r.visY0 : r.y0;
+    const visH  = r.y1 - visY0;
+    const visAspect = w / visH;
+
     if (frontImageBitmap) {
       const iaspect = frontImageBitmap.width / frontImageBitmap.height;
-      const paspect = w / h;
       let sx, sy, sw, sh;
-      if (iaspect > paspect) {
-        sh = frontImageBitmap.height; sw = sh * paspect;
+      if (iaspect > visAspect) {
+        // image wider than the visible face — crop sides
+        sh = frontImageBitmap.height; sw = sh * visAspect;
         sx = (frontImageBitmap.width - sw) / 2; sy = 0;
       } else {
-        sw = frontImageBitmap.width; sh = sw / paspect;
+        // image taller — crop top/bottom
+        sw = frontImageBitmap.width; sh = sw / visAspect;
         sx = 0; sy = (frontImageBitmap.height - sh) / 2;
       }
-      ctx.drawImage(frontImageBitmap, sx, sy, sw, sh, r.x0, r.y0, w, h);
-      return; // image fills the whole front cover, no frame/text
+      ctx.drawImage(frontImageBitmap, sx, sy, sw, sh, r.x0, visY0, w, visH);
+      return; // image fills the visible front cover, no frame/text
     }
 
     if (d.front.frame) {
-      const inset = Math.min(w, h) * 0.04;
+      const inset = Math.min(w, visH) * 0.04;
       ctx.strokeStyle = d.front.textColor;
-      ctx.lineWidth = Math.max(3, Math.min(w, h) * 0.008);
-      ctx.strokeRect(r.x0 + inset, r.y0 + inset, w - inset*2, h - inset*2);
+      ctx.lineWidth = Math.max(3, Math.min(w, visH) * 0.008);
+      ctx.strokeRect(r.x0 + inset, visY0 + inset, w - inset*2, visH - inset*2);
       ctx.lineWidth *= 0.4;
-      ctx.strokeRect(r.x0 + inset + 10, r.y0 + inset + 10, w - inset*2 - 20, h - inset*2 - 20);
+      ctx.strokeRect(r.x0 + inset + 10, visY0 + inset + 10, w - inset*2 - 20, visH - inset*2 - 20);
     }
 
-    // Title / subtitle / author block, centered top-down (natural reading order)
     ctx.fillStyle = d.front.textColor;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     const cx = r.x0 + w / 2;
-    const titleSize  = d.front.fontSize * (Math.min(w, h) / 700);
+    const titleSize  = d.front.fontSize * (Math.min(w, visH) / 700);
     const subSize    = titleSize * 0.55;
     const authorSize = titleSize * 0.5;
     const maxW = w * 0.85;
@@ -987,7 +996,7 @@ function paintFront(d) {
     const blockH  = titleLines.length * lineGap
                   + (subLines.length    ? subLines.length    * subGap  + lineGap*0.4 : 0)
                   + (authorLines.length ? authorLines.length * authGap + lineGap*0.6 : 0);
-    let y = r.y0 + h * 0.5 - blockH / 2;
+    let y = visY0 + visH * 0.5 - blockH / 2;
     ctx.font = `bold ${titleSize}px ${d.front.font}`;
     titleLines.forEach(l => { ctx.fillText(l, cx, y + lineGap/2); y += lineGap; });
     if (subLines.length) {
@@ -1013,28 +1022,31 @@ function paintSpine(d) {
     ctx.fillStyle = d.spine.color;
     ctx.fillRect(r.x0, r.y0, w, h);
 
+    const visY0 = r.visY0 != null ? r.visY0 : r.y0;
+    const visH  = r.y1 - visY0;
+
     if (d.spine.bands) {
       ctx.fillStyle = d.spine.textColor;
-      const bandH = h * 0.018;
-      ctx.fillRect(r.x0, r.y0 + h * 0.06, w, bandH);
-      ctx.fillRect(r.x0, r.y1 - h * 0.06 - bandH, w, bandH);
+      const bandH = visH * 0.018;
+      ctx.fillRect(r.x0, visY0 + visH * 0.06, w, bandH);
+      ctx.fillRect(r.x0, r.y1 - visH * 0.06 - bandH, w, bandH);
     }
 
     // Vertical title (top-to-bottom on the rendered spine = rotate -90°)
     ctx.save();
-    ctx.translate(r.x0 + w / 2, r.y0 + h / 2);
+    ctx.translate(r.x0 + w / 2, visY0 + visH / 2);
     ctx.rotate(-Math.PI / 2);
     ctx.fillStyle = d.spine.textColor;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    const size = d.spine.fontSize * (h / 1500);
+    const size = d.spine.fontSize * (visH / 1500);
     if (d.spine.title.trim()) {
       ctx.font = `bold ${size * 1.2}px Georgia, serif`;
-      ctx.fillText(d.spine.title.trim(), -h * 0.05, 0);
+      ctx.fillText(d.spine.title.trim(), -visH * 0.05, 0);
     }
     if (d.spine.author.trim()) {
       ctx.font = `${size * 0.7}px Georgia, serif`;
-      ctx.fillText(d.spine.author.trim(), h * 0.32, 0);
+      ctx.fillText(d.spine.author.trim(), visH * 0.32, 0);
     }
     ctx.restore();
   });
@@ -1046,10 +1058,13 @@ function paintBack(d) {
     ctx.fillStyle = d.back.color;
     ctx.fillRect(r.x0, r.y0, w, h);
 
-    // Publisher safe zone — 10% inset all around, separate strip for barcode
-    const safeX = w * 0.10, safeY = h * 0.12;
-    const sx0 = r.x0 + safeX, sy0 = r.y0 + safeY;
-    const sw  = w - safeX * 2, sh = h - safeY * 2;
+    // Safe zone is computed within the VISIBLE face area (visY0..y1) so the
+    // blurb / barcode never land in the inner-cover region above visY0.
+    const visY0 = r.visY0 != null ? r.visY0 : r.y0;
+    const visH  = r.y1 - visY0;
+    const safeX = w * 0.10, safeY = visH * 0.12;
+    const sx0 = r.x0 + safeX, sy0 = visY0 + safeY;
+    const sw  = w - safeX * 2, sh = visH - safeY * 2;
     const barcodeH = d.back.barcode ? sh * 0.18 : 0;
     const blurbH   = sh - barcodeH;
 
@@ -1166,16 +1181,21 @@ function paintCalibrationOverlay() {
       const w = r.x1 - r.x0, h = r.y1 - r.y0;
       ctx.fillStyle = r.color;
       ctx.fillRect(r.x0, r.y0, w, h);
-      ctx.fillStyle = 'rgba(0,0,0,0.7)';
-      ctx.font = `bold ${Math.min(w, h) * 0.12}px sans-serif`;
+      ctx.fillStyle = 'rgba(0,0,0,0.85)';
+      // Label/corners positioned within the VISIBLE face area (visY0..y1) so
+      // TL/TR aren't pushed off into the inner-cover area that's hidden when
+      // the book is closed. Falls back to the full bbox if visY0 isn't set.
+      const visY0 = r.visY0 != null ? r.visY0 : r.y0;
+      const visH  = r.y1 - visY0;
+      ctx.font = `bold ${Math.min(w, visH) * 0.12}px sans-serif`;
       ctx.textBaseline = 'top';
-      ctx.textAlign = 'left';   ctx.fillText('TL', r.x0 + 8, r.y0 + 4);
-      ctx.textAlign = 'right';  ctx.fillText('TR', r.x1 - 8, r.y0 + 4);
+      ctx.textAlign = 'left';   ctx.fillText('TL', r.x0 + 12, visY0 + 8);
+      ctx.textAlign = 'right';  ctx.fillText('TR', r.x1 - 12, visY0 + 8);
       ctx.textBaseline = 'bottom';
-      ctx.textAlign = 'left';   ctx.fillText('BL', r.x0 + 8, r.y1 - 4);
-      ctx.textAlign = 'right';  ctx.fillText('BR', r.x1 - 8, r.y1 - 4);
+      ctx.textAlign = 'left';   ctx.fillText('BL', r.x0 + 12, r.y1 - 8);
+      ctx.textAlign = 'right';  ctx.fillText('BR', r.x1 - 12, r.y1 - 8);
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(r.label, r.x0 + w/2, r.y0 + h/2);
+      ctx.fillText(r.label, r.x0 + w/2, visY0 + visH/2);
     });
   }
 }
