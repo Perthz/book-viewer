@@ -798,8 +798,9 @@ const REGIONS = {
   paperEdges:   { x0:    0, y0:  150, x1: 1990, y1:  500, color: '#BBBBBB', label: 'PAPER',     flipX: false, flipY: false },
   // Page content — right column (x=[1430,1990]), split equally from paper bottom
   // (y=500) to texture bottom (y=2048). Mirror + upside-down on the rendered face.
-  contentUpper: { x0: 1430, y0:  500, x1: 2048, y1: 1274, color: '#FF8800', label: 'CONTENT-U', flipX: true,  flipY: true },
-  contentLower: { x0: 1430, y0: 1274, x1: 2048, y1: 2048, color: '#9933FF', label: 'CONTENT-L', flipX: true,  flipY: true },
+  // GPU UV for these pages is x-mirrored only (no y-inversion) → flipX only.
+  contentUpper: { x0: 1430, y0:  500, x1: 2048, y1: 1274, color: '#FF8800', label: 'CONTENT-U', flipX: true,  flipY: false },
+  contentLower: { x0: 1430, y0: 1274, x1: 2048, y1: 2048, color: '#9933FF', label: 'CONTENT-L', flipX: true,  flipY: false },
 };
 
 // ── State container (serializable design) ───────────────────────────────────
@@ -1326,12 +1327,32 @@ document.getElementById('cpClose').addEventListener('click', () => {
   const preview = document.getElementById('cpPreview');
   const SNAP = 8; // hit-test radius in display pixels
 
-  // Each draggable edge: axis, which coord getter, and which fields to update.
+  const REGIONS_KEY = 'bookViewerRegions';
+
+  // Persist region coords to localStorage after every drag.
+  function saveRegions() {
+    const saved = {};
+    for (const [k, r] of Object.entries(REGIONS)) saved[k] = { x0:r.x0, y0:r.y0, x1:r.x1, y1:r.y1, visY0:r.visY0 };
+    localStorage.setItem(REGIONS_KEY, JSON.stringify(saved));
+  }
+  // Restore on load.
+  (function loadRegions() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(REGIONS_KEY) || 'null');
+      if (!saved) return;
+      for (const [k, v] of Object.entries(saved)) {
+        if (REGIONS[k]) Object.assign(REGIONS[k], v);
+      }
+    } catch {}
+  })();
+
+  // Each draggable edge: axis, coord getter, and which fields to update.
   function edges() {
     return [
       { axis:'x', get:()=>REGIONS.front.x1,        set:(v)=>{ REGIONS.front.x1=v; REGIONS.spine.x0=v; } },
       { axis:'x', get:()=>REGIONS.spine.x1,         set:(v)=>{ REGIONS.spine.x1=v; REGIONS.back.x0=v; } },
       { axis:'x', get:()=>REGIONS.back.x1,          set:(v)=>{ REGIONS.back.x1=v; REGIONS.contentUpper.x0=v; REGIONS.contentLower.x0=v; } },
+      { axis:'y', get:()=>REGIONS.paperEdges.y0,    set:(v)=>{ REGIONS.paperEdges.y0=v; } },
       { axis:'y', get:()=>REGIONS.paperEdges.y1,    set:(v)=>{ REGIONS.paperEdges.y1=v; REGIONS.contentUpper.y0=v; } },
       { axis:'y', get:()=>REGIONS.contentUpper.y1,  set:(v)=>{ REGIONS.contentUpper.y1=v; REGIONS.contentLower.y0=v; } },
       { axis:'y', get:()=>REGIONS.front.y0,         set:(v)=>{ ['front','spine','back'].forEach(k=>{ REGIONS[k].y0=v; REGIONS[k].visY0=v; }); } },
@@ -1378,8 +1399,8 @@ document.getElementById('cpClose').addEventListener('click', () => {
     }
   });
 
-  window.addEventListener('mouseup', () => { dragging = null; });
-  window.addEventListener('mouseleave', () => { dragging = null; });
+  window.addEventListener('mouseup', () => { if (dragging) saveRegions(); dragging = null; });
+  window.addEventListener('mouseleave', () => { if (dragging) saveRegions(); dragging = null; });
 })();
 
 document.querySelectorAll('.cp-tab').forEach(tab => {
