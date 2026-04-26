@@ -1474,6 +1474,8 @@ LIVE_IDS.forEach(id => {
 document.getElementById('cpShowZones').addEventListener('change', () => { rebuildTexture(); applyTextureToBook(true); });
 document.getElementById('cpInnerColor').addEventListener('input', (e) => {
   document.getElementById('cpInnerColorHex').textContent = e.target.value;
+  // Changing the custom color implies the user wants to use it — uncheck sync
+  document.getElementById('cpInnerSync').checked = false;
   rebuildTexture(); applyTextureToBook(true);
 });
 document.getElementById('cpInnerSync').addEventListener('change', () => { rebuildTexture(); applyTextureToBook(true); });
