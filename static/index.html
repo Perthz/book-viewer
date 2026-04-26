@@ -48,7 +48,7 @@
     .rot-label span:first-child { color: #aaa; font-size: 0.72rem; }
     .rot-label span:last-child { color: #fff; font-weight: 600; font-size: 0.72rem; }
 
-    /* ── Cover Designer ── */
+    /* ── Cover Designer v2 ── */
     #coverDesignerBtn {
       width: 100%; padding: 8px;
       background: rgba(200,100,255,0.15); border: 1px solid rgba(200,100,255,0.3);
@@ -60,33 +60,53 @@
     #coverPanel {
       position: fixed; top: 50%; left: 50%;
       transform: translate(-50%, -50%);
-      background: rgba(15, 15, 22, 0.95);
+      background: rgba(15, 15, 22, 0.96);
       border: 1px solid rgba(200,100,255,0.25);
-      border-radius: 14px; padding: 24px;
+      border-radius: 14px; padding: 22px;
       color: #e0e0e0; font-size: 0.78rem;
-      width: 480px; max-height: 90vh; overflow-y: auto;
+      width: 540px; max-height: 92vh; overflow-y: auto;
       z-index: 100; display: none;
       backdrop-filter: blur(16px);
     }
-    #coverPanel h2 { font-size: 0.85rem; font-weight: 600; color: #c864ff; margin-bottom: 16px; letter-spacing: 0.05em; }
-    .cp-row { margin-bottom: 12px; }
-    .cp-label { color: #888; font-size: 0.72rem; margin-bottom: 4px; display: block; }
-    .cp-input { width: 100%; padding: 7px 10px; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); border-radius: 6px; color: #e0e0e0; font-size: 0.78rem; outline: none; }
-    .cp-input:focus { border-color: rgba(200,100,255,0.5); }
+    #coverPanel h2 { font-size: 0.85rem; font-weight: 600; color: #c864ff; margin-bottom: 14px; letter-spacing: 0.05em; }
+
+    .cp-tabs { display: flex; gap: 2px; margin-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+    .cp-tab { flex: 1; padding: 8px 6px; background: none; border: none; color: #777; font-size: 0.74rem; cursor: pointer; border-bottom: 2px solid transparent; font-family: inherit; }
+    .cp-tab.active { color: #c864ff; border-bottom-color: #c864ff; }
+    .cp-tab:hover { color: #ccc; }
+    .cp-page { display: none; }
+    .cp-page.active { display: block; }
+
+    .cp-row { margin-bottom: 10px; }
+    .cp-label { color: #888; font-size: 0.7rem; margin-bottom: 4px; display: block; }
+    .cp-input, .cp-textarea { width: 100%; padding: 7px 10px; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); border-radius: 6px; color: #e0e0e0; font-size: 0.78rem; outline: none; font-family: inherit; }
+    .cp-textarea { min-height: 60px; resize: vertical; }
+    .cp-input:focus, .cp-textarea:focus { border-color: rgba(200,100,255,0.5); }
     .cp-row-inline { display: flex; gap: 8px; }
     .cp-row-inline .cp-row { flex: 1; }
     .cp-color-wrap { display: flex; align-items: center; gap: 8px; }
     .cp-color-wrap input[type="color"] { width: 36px; height: 32px; border: none; background: none; cursor: pointer; border-radius: 4px; padding: 0; }
-    .cp-color-wrap span { color: #888; font-size: 0.72rem; }
-    #cpPreview { width: 100%; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 12px; display: block; image-rendering: pixelated; }
-    .cp-actions { display: flex; gap: 8px; margin-top: 16px; }
-    .cp-apply { flex: 1; padding: 9px; background: rgba(200,100,255,0.2); border: 1px solid rgba(200,100,255,0.4); border-radius: 6px; color: #c864ff; font-size: 0.78rem; cursor: pointer; }
+    .cp-color-wrap span { color: #888; font-size: 0.7rem; font-family: monospace; }
+    .cp-range-row { display: flex; align-items: center; gap: 8px; }
+    .cp-range-row input[type="range"] { flex: 1; }
+    .cp-range-row span { color: #888; font-size: 0.7rem; min-width: 38px; text-align: right; }
+    .cp-checkbox { display: flex; align-items: center; gap: 8px; color: #aaa; font-size: 0.74rem; cursor: pointer; }
+    .cp-checkbox input { cursor: pointer; }
+
+    #cpPreviewWrap { position: relative; margin-bottom: 12px; }
+    #cpPreview { width: 100%; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); display: block; image-rendering: auto; background: #222; }
+    #cpPreviewLabel { position: absolute; top: 6px; left: 8px; font-size: 0.65rem; color: rgba(255,255,255,0.5); letter-spacing: 0.05em; }
+
+    .cp-actions { display: flex; gap: 6px; margin-top: 14px; flex-wrap: wrap; }
+    .cp-actions button { padding: 8px 12px; border-radius: 6px; font-size: 0.74rem; cursor: pointer; font-family: inherit; }
+    .cp-apply { flex: 1; min-width: 100px; background: rgba(200,100,255,0.2); border: 1px solid rgba(200,100,255,0.4); color: #c864ff; }
     .cp-apply:hover { background: rgba(200,100,255,0.35); }
-    .cp-close { padding: 9px 14px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #888; font-size: 0.78rem; cursor: pointer; }
-    .cp-close:hover { background: rgba(255,255,255,0.1); color: #ccc; }
-    .cp-font-size-row { display: flex; align-items: center; gap: 8px; }
-    .cp-font-size-row input[type="range"] { flex: 1; }
-    .cp-font-size-row span { color: #888; font-size: 0.72rem; min-width: 40px; }
+    .cp-secondary { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: #aaa; }
+    .cp-secondary:hover { background: rgba(255,255,255,0.1); color: #ddd; }
+
+    .cp-saves { display: flex; align-items: center; gap: 4px; margin-top: 10px; }
+    .cp-saves select { flex: 1; padding: 6px 8px; border-radius: 6px; border: 1px solid #333; background: #1a1a22; color: #ccc; cursor: pointer; font-family: inherit; font-size: 0.74rem; }
+    .cp-saves button { padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.06); color: #aaa; cursor: pointer; font-size: 0.7rem; }
   </style>
 </head>
 <body>
@@ -141,75 +161,139 @@
   <button id="coverDesignerBtn">Cover Designer</button>
 </div>
 
-<!-- Cover Designer Panel -->
+<!-- Cover Designer Panel v2 -->
 <div id="coverPanel">
   <h2>Cover Designer</h2>
 
-  <!-- Texture Preview -->
-  <canvas id="cpPreview" width="400" height="300"></canvas>
-
-  <!-- Text Fields -->
-  <div class="cp-row">
-    <label class="cp-label">Title</label>
-    <input type="text" class="cp-input" id="cpTitle" placeholder="Book Title" maxlength="60">
-  </div>
-  <div class="cp-row">
-    <label class="cp-label">Subtitle</label>
-    <input type="text" class="cp-input" id="cpSubtitle" placeholder="Optional subtitle" maxlength="80">
-  </div>
-  <div class="cp-row">
-    <label class="cp-label">Author</label>
-    <input type="text" class="cp-input" id="cpAuthor" placeholder="Author Name" maxlength="40">
+  <div id="cpPreviewWrap">
+    <canvas id="cpPreview" width="540" height="540"></canvas>
+    <div id="cpPreviewLabel">UV LAYOUT · BACK | SPINE | FRONT</div>
   </div>
 
-  <!-- Font Size -->
-  <div class="cp-row">
-    <label class="cp-label">Text Size</label>
-    <div class="cp-font-size-row">
-      <input type="range" id="cpFontSize" min="12" max="120" step="1" value="48">
-      <span id="cpFontSizeVal">48px</span>
+  <label class="cp-checkbox" style="margin-bottom:10px;">
+    <input type="checkbox" id="cpShowZones"> Calibration mode (paint regions in legend colors)
+  </label>
+
+  <div class="cp-tabs">
+    <button class="cp-tab active" data-tab="front">Front</button>
+    <button class="cp-tab" data-tab="spine">Spine</button>
+    <button class="cp-tab" data-tab="back">Back</button>
+    <button class="cp-tab" data-tab="paper">Paper</button>
+  </div>
+
+  <!-- FRONT -->
+  <div class="cp-page active" data-page="front">
+    <div class="cp-row-inline">
+      <div class="cp-row">
+        <label class="cp-label">Cover Color</label>
+        <div class="cp-color-wrap"><input type="color" id="cpFrontColor" value="#8B1A1A"><span id="cpFrontColorHex">#8B1A1A</span></div>
+      </div>
+      <div class="cp-row">
+        <label class="cp-label">Text Color</label>
+        <div class="cp-color-wrap"><input type="color" id="cpFrontTextColor" value="#F2D27A"><span id="cpFrontTextColorHex">#F2D27A</span></div>
+      </div>
+    </div>
+    <div class="cp-row"><label class="cp-label">Title</label><input type="text" class="cp-input" id="cpFrontTitle" value="The Great Gatsby" maxlength="80"></div>
+    <div class="cp-row"><label class="cp-label">Subtitle</label><input type="text" class="cp-input" id="cpFrontSubtitle" placeholder="Optional subtitle" maxlength="100"></div>
+    <div class="cp-row"><label class="cp-label">Author</label><input type="text" class="cp-input" id="cpFrontAuthor" value="F. Scott Fitzgerald" maxlength="60"></div>
+    <div class="cp-row">
+      <label class="cp-label">Title Size</label>
+      <div class="cp-range-row"><input type="range" id="cpFrontFontSize" min="40" max="180" step="2" value="110"><span id="cpFrontFontSizeVal">110</span></div>
+    </div>
+    <div class="cp-row">
+      <label class="cp-label">Font</label>
+      <select class="cp-input" id="cpFrontFont">
+        <option value="Georgia, serif">Georgia (serif)</option>
+        <option value="'Times New Roman', serif">Times New Roman</option>
+        <option value="'Playfair Display', Georgia, serif">Playfair (serif display)</option>
+        <option value="'Helvetica Neue', Arial, sans-serif">Helvetica</option>
+        <option value="'Courier New', monospace">Courier (mono)</option>
+      </select>
+    </div>
+    <label class="cp-checkbox"><input type="checkbox" id="cpFrontFrame" checked> Show ornamental frame</label>
+    <div class="cp-row" style="margin-top:8px;">
+      <label class="cp-label">Cover Image (optional)</label>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <input type="file" class="cp-input" id="cpFrontImage" accept="image/*" style="flex:1;">
+        <span id="cpFrontImageName" style="font-size:0.68rem;color:#888;white-space:nowrap;overflow:hidden;max-width:120px;text-overflow:ellipsis;"></span>
+      </div>
     </div>
   </div>
 
-  <!-- Colors -->
-  <div class="cp-row-inline">
+  <!-- SPINE -->
+  <div class="cp-page" data-page="spine">
+    <div class="cp-row-inline">
+      <div class="cp-row">
+        <label class="cp-label">Spine Color</label>
+        <div class="cp-color-wrap"><input type="color" id="cpSpineColor" value="#6B1414"><span id="cpSpineColorHex">#6B1414</span></div>
+      </div>
+      <div class="cp-row">
+        <label class="cp-label">Text Color</label>
+        <div class="cp-color-wrap"><input type="color" id="cpSpineTextColor" value="#F2D27A"><span id="cpSpineTextColorHex">#F2D27A</span></div>
+      </div>
+    </div>
+    <div class="cp-row"><label class="cp-label">Spine Title</label><input type="text" class="cp-input" id="cpSpineTitle" value="GATSBY" maxlength="40"></div>
+    <div class="cp-row"><label class="cp-label">Spine Author</label><input type="text" class="cp-input" id="cpSpineAuthor" value="FITZGERALD" maxlength="40"></div>
     <div class="cp-row">
-      <label class="cp-label">Cover Color</label>
-      <div class="cp-color-wrap">
-        <input type="color" id="cpCoverColor" value="#8B4513">
-        <span id="cpCoverColorHex">#8B4513</span>
+      <label class="cp-label">Text Size</label>
+      <div class="cp-range-row"><input type="range" id="cpSpineFontSize" min="20" max="80" step="1" value="42"><span id="cpSpineFontSizeVal">42</span></div>
+    </div>
+    <label class="cp-checkbox"><input type="checkbox" id="cpSpineBands" checked> Accent bands (top/bottom)</label>
+  </div>
+
+  <!-- BACK -->
+  <div class="cp-page" data-page="back">
+    <div class="cp-row-inline">
+      <div class="cp-row">
+        <label class="cp-label">Back Color</label>
+        <div class="cp-color-wrap"><input type="color" id="cpBackColor" value="#8B1A1A"><span id="cpBackColorHex">#8B1A1A</span></div>
+      </div>
+      <div class="cp-row">
+        <label class="cp-label">Text Color</label>
+        <div class="cp-color-wrap"><input type="color" id="cpBackTextColor" value="#F2EFE6"><span id="cpBackTextColorHex">#F2EFE6</span></div>
       </div>
     </div>
     <div class="cp-row">
-      <label class="cp-label">Text Color</label>
-      <div class="cp-color-wrap">
-        <input type="color" id="cpTextColor" value="#FFFFFF">
-        <span id="cpTextColorHex">#FFFFFF</span>
-      </div>
+      <label class="cp-label">Blurb / Description</label>
+      <textarea class="cp-textarea" id="cpBackBlurb" maxlength="800" placeholder="Back-cover blurb…">In my younger and more vulnerable years my father gave me some advice that I've been turning over in my mind ever since. "Whenever you feel like criticizing anyone," he told me, "just remember that all the people in this world haven't had the advantages that you've had."</textarea>
+    </div>
+    <div class="cp-row">
+      <label class="cp-label">Blurb Size</label>
+      <div class="cp-range-row"><input type="range" id="cpBackFontSize" min="18" max="60" step="1" value="32"><span id="cpBackFontSizeVal">32</span></div>
+    </div>
+    <label class="cp-checkbox"><input type="checkbox" id="cpBackBarcode"> Show barcode placeholder</label>
+  </div>
+
+  <!-- PAPER -->
+  <div class="cp-page" data-page="paper">
+    <div class="cp-row">
+      <label class="cp-label">Page Color</label>
+      <div class="cp-color-wrap"><input type="color" id="cpPaperColor" value="#F5F0E8"><span id="cpPaperColorHex">#F5F0E8</span></div>
+    </div>
+    <label class="cp-checkbox"><input type="checkbox" id="cpPaperGrain" checked> Paper grain (subtle fiber texture)</label>
+    <div class="cp-row" style="margin-top:10px;">
+      <label class="cp-label">Inside Content (visible at page-block edges and through opening)</label>
+      <textarea class="cp-textarea" id="cpPaperContent" maxlength="2000" placeholder="Sample text from inside the book — first page, opening line, or any excerpt…">It was the best of times, it was the worst of times, it was the age of wisdom, it was the age of foolishness, it was the epoch of belief, it was the epoch of incredulity…</textarea>
+    </div>
+    <div class="cp-row">
+      <label class="cp-label">Content Size</label>
+      <div class="cp-range-row"><input type="range" id="cpPaperFontSize" min="14" max="48" step="1" value="22"><span id="cpPaperFontSizeVal">22</span></div>
     </div>
   </div>
 
-  <!-- Paper Color -->
-  <div class="cp-row">
-    <label class="cp-label">Paper Color</label>
-    <div class="cp-color-wrap">
-      <input type="color" id="cpPaperColor" value="#F5F0E8">
-      <span id="cpPaperColorHex">#F5F0E8</span>
-    </div>
-  </div>
-
-  <!-- Texture Color (tint whole texture) -->
-  <div class="cp-row">
-    <label class="cp-label">Texture Tint (applies color overlay on top of texture image)</label>
-    <div class="cp-color-wrap">
-      <input type="color" id="cpTintColor" value="#FFFFFF">
-      <span id="cpTintColorHex">#FFFFFF (none)</span>
-    </div>
+  <div class="cp-saves">
+    <select id="cpDesignSelect"><option value="">— Load design —</option></select>
+    <button id="cpSaveBtn">Save</button>
+    <button id="cpDelBtn" style="background:#4a2020;color:#f88;">🗑</button>
   </div>
 
   <div class="cp-actions">
     <button class="cp-apply" id="cpApply">Apply to Book</button>
-    <button class="cp-close" id="cpClose">Close</button>
+    <button class="cp-secondary" id="cpDownload">Download PNG</button>
+    <button class="cp-secondary" id="cpDownloadJSON">Download JSON</button>
+    <button class="cp-secondary" id="cpLoadEpub">Load .epub…</button>
+    <input type="file" id="cpEpubInput" accept=".epub" style="display:none">
+    <button class="cp-secondary" id="cpClose">Close</button>
   </div>
 </div>
 
@@ -435,21 +519,44 @@ loader.load('./scene.gltf', (gltf) => {
   bookGroup = new THREE.Group();
   scene.add(bookGroup);
   bookGroup.add(gltf.scene);
-  gltf.scene.traverse((o) => {
-    if (o.isMesh || o.isSkinnedMesh) {
-      o.frustumCulled = false;
-      // Cover designer: capture book mesh and pages mesh references
-      const n = o.name.toLowerCase();
-      if (!bookMesh && n.includes('book') && !n.includes('pages')) {
-        bookMesh = o;
-        bookMaterial = o.material;
-      }
-      if (!pagesMesh && n.includes('page')) {
-        pagesMesh = o;
-        pagesMaterial = o.material;
-      }
+  // glTF node names are anonymous (Object_9 etc.) and ALL three meshes are
+  // SkinnedMesh in this model. Distinguish the cover (448 verts, rigged with
+  // back/spine/front bones) from the pages by vertex count: cover has the
+  // most verts on the rigged "book" mesh, pages are plain rectangles.
+  const allMeshes = [];
+  gltf.scene.traverse(o => { if (o.isMesh || o.isSkinnedMesh) { o.frustumCulled = false; allMeshes.push(o); } });
+  // First skinned mesh with > 200 verts is the cover; the rest are pages.
+  const allPagesMeshes = [];
+  for (const o of allMeshes) {
+    if (!bookMesh && o.geometry.attributes.position.count >= 200) {
+      bookMesh = o;
+      bookMaterial = o.material;
+      console.log('[CoverDesigner] captured cover mesh:', o.name, 'verts:', o.geometry.attributes.position.count);
+    } else {
+      allPagesMeshes.push(o);
+      console.log('[CoverDesigner] captured pages mesh:', o.name, 'verts:', o.geometry.attributes.position.count);
     }
-  });
+  }
+  pagesMesh = allPagesMeshes[0] || null;
+  // (debug) expose for browser-console inspection during development
+  window.__bookMesh = bookMesh; window.__bookMat = bookMaterial;
+  window.__camera = camera; window.__orbit = orbitControls; window.__bookGroup = bookGroup;
+  // Pages share the cover material in this glTF — leave them as-is so book
+  // content painted into REGIONS.contentUpper/contentLower lands on the
+  // actual page surfaces.
+  pagesMaterial = bookMaterial;
+  // Strip the cover material's normal and metallic-roughness maps. They were
+  // baked from the ORIGINAL artwork (red leather + gold ornament bumps), so
+  // they keep imprinting the old design over our designer's flat fill. Leave
+  // the basic PBR sliders untouched; we re-add a leather feel later.
+  if (bookMaterial) {
+    if (bookMaterial.normalMap) { bookMaterial.normalMap.dispose(); bookMaterial.normalMap = null; }
+    if (bookMaterial.metalnessMap) { bookMaterial.metalnessMap.dispose(); bookMaterial.metalnessMap = null; }
+    if (bookMaterial.roughnessMap) { bookMaterial.roughnessMap.dispose(); bookMaterial.roughnessMap = null; }
+    bookMaterial.roughness = 0.7;
+    bookMaterial.metalness = 0;
+    bookMaterial.needsUpdate = true;
+  }
 
   // Stand the book upright: model's Z axis → world Y (up).
   // applyRotation() below will set the full rotation (base + slider offsets).
@@ -622,283 +729,650 @@ function animate() {
 animate();
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// ── Cover Designer ───────────────────────────────────────────────────────────
+// ── Cover Designer v2 — per-zone (front / spine / back) ─────────────────────
 // ═══════════════════════════════════════════════════════════════════════════════
 //
-// The book's UV map uses a SINGLE region for all parts:
-//   UV: u[0.0023, 0.6839], v[0.1083, 1.0]
-//   Pixels: x[4, 1400], y[0, 1826] on the 2048×2048 texture
+// The cover mesh is rigged with bones back_00 / spine_01 / front_02. Skin weights
+// cleanly partition the 448 vertices into three non-overlapping UV zones (verified
+// by rasterizing UV triangles and labelling them by dominant bone). Each zone has
+// its own pixel-mask in the 2048×2048 baseColor texture, so we can paint them
+// independently without disturbing the pages-mesh UV region (x>1401).
 //
-// There are no separate front/spine/back UV zones — the texture is a single
-// painted artwork. The cover designer works by:
-//   1. Filling the entire UV region with a solid cover color
-//   2. Drawing title/subtitle/author as centered text overlays
-//   3. Letting users choose a texture tint color blended over the artwork
-//
-// Paper color applies separately to the pages mesh material.
+// Pipeline:
+//   1. UV partition (once at load): classify each vertex by dominant skin weight
+//      → back/spine/front, then rasterize triangles into per-zone mask canvases.
+//   2. Texture compositor: build a fresh 2048² canvas zone-by-zone, clipping to
+//      each zone mask, then upload as a CanvasTexture.
+//   3. Pages mesh material is independent (color + optional edge-tint).
 
 const TEX_W = 2048, TEX_H = 2048;
-// The usable UV region in pixel coordinates
-const TEX_X0 = 4, TEX_X1 = 1400;  // u range → x pixel range
-const TEX_Y0 = 0,   TEX_Y1 = 1826;  // v range → y pixel range
-const TEX_REG_W = TEX_X1 - TEX_X0;  // 1396px
-const TEX_REG_H = TEX_Y1 - TEX_Y0;  // 1826px
 
 // State
-let texCanvas = null;       // 2048×2048 offscreen canvas
-let texCtx = null;
-let texOriginal = null;     // cached original Image for fast resets
-let bookMesh = null;
-let pagesMesh = null;
-let bookMaterial = null;
-let pagesMaterial = null;
+let texCanvas = null, texCtx = null;       // main 2048² compositor
+let bookMesh = null, pagesMesh = null;
+let bookMaterial = null, pagesMaterial = null;
 let coverDesignerReady = false;
+let frontImageBitmap = null;               // user-uploaded cover image (runtime)
+let frontImageData = null;                 // base64 data URL (persisted in design)
 
-// Reload original texture (from cached image to avoid re-fetching)
-function loadOriginalTexture() {
-  return new Promise((resolve) => {
-    if (texOriginal) {
-      texCtx.clearRect(0, 0, TEX_W, TEX_H);
-      texCtx.drawImage(texOriginal, 0, 0);
-      resolve();
-      return;
-    }
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      texOriginal = img;
-      texCanvas = document.createElement('canvas');
-      texCanvas.width = TEX_W;
-      texCanvas.height = TEX_H;
-      texCtx = texCanvas.getContext('2d');
-      texCtx.drawImage(img, 0, 0);
-      resolve();
-    };
-    img.onerror = () => {
-      texOriginal = null;
-      texCanvas = document.createElement('canvas');
-      texCanvas.width = TEX_W;
-      texCanvas.height = TEX_H;
-      texCtx = texCanvas.getContext('2d');
-      resolve();
-    };
-    img.src = './textures/book_baseColor.png';
-  });
+// ── REGIONS table (hand-verified pixel rectangles on the 2048² texture) ─────
+//
+// Pixel coordinates extracted from the user's hand-marked overlay. Edit any
+// rect that's off and the painters/preview update automatically — these are
+// the single source of truth. The calibration overlay (Show region overlay)
+// renders each rect as a unique solid color matching the user's legend so
+// off-by-N pixel mistakes show up immediately on the rendered book.
+//
+// `flipX`/`flipY` capture the GPU's UV mirror per region; verified per-region
+// during calibration by reading which corner letter (TL/TR/BL/BR) lands where.
+const REGIONS = {
+  // Cover trio tiles edge-to-edge across the bottom-half of the texture.
+  // Layout (canvas-X order):  FRONT | SPINE | BACK  — verified empirically
+  // by reading the calibration colors off the rendered closed book. The GPU
+  // samples canvas-LEFT onto the visible front face (because of the cover
+  // mesh's UV winding for this glTF).
+  front:        { x0:    0, y0: 1100, x1:  620, y1: 2048, color: '#5A8CFF', label: 'FRONT',     flipX: true,  flipY: false },
+  spine:        { x0:  620, y0: 1100, x1:  800, y1: 2048, color: '#FFC81E', label: 'SPINE',     flipX: true,  flipY: false },
+  back:         { x0:  800, y0: 1100, x1: 1500, y1: 2048, color: '#3CFA82', label: 'BACK',      flipX: true,  flipY: false },
+  paperEdges:   { x0:    0, y0:  280, x1: 1430, y1:  380, color: '#BBBBBB', label: 'PAPER',     flipX: false, flipY: false },
+  contentUpper: { x0: 1430, y0:  460, x1: 1990, y1: 1280, color: '#FF8800', label: 'CONTENT-U', flipX: false, flipY: false },
+  contentLower: { x0: 1430, y0: 1290, x1: 1990, y1: 1985, color: '#9933FF', label: 'CONTENT-L', flipX: false, flipY: false },
+};
+
+// ── State container (serializable design) ───────────────────────────────────
+function readDesign() {
+  return {
+    front: {
+      color: $val('cpFrontColor'),
+      textColor: $val('cpFrontTextColor'),
+      title: $val('cpFrontTitle'),
+      subtitle: $val('cpFrontSubtitle'),
+      author: $val('cpFrontAuthor'),
+      fontSize: +$val('cpFrontFontSize'),
+      font: $val('cpFrontFont'),
+      frame: $check('cpFrontFrame'),
+      imageData: frontImageData,
+    },
+    spine: {
+      color: $val('cpSpineColor'),
+      textColor: $val('cpSpineTextColor'),
+      title: $val('cpSpineTitle'),
+      author: $val('cpSpineAuthor'),
+      fontSize: +$val('cpSpineFontSize'),
+      bands: $check('cpSpineBands'),
+    },
+    back: {
+      color: $val('cpBackColor'),
+      textColor: $val('cpBackTextColor'),
+      blurb: $val('cpBackBlurb'),
+      fontSize: +$val('cpBackFontSize'),
+      barcode: $check('cpBackBarcode'),
+    },
+    paper: {
+      color: $val('cpPaperColor'),
+      grain: $check('cpPaperGrain'),
+      content: $val('cpPaperContent'),
+      fontSize: +$val('cpPaperFontSize'),
+    },
+  };
 }
-
-// Fill the cover region with a solid color
-function fillCoverRegion(hexColor) {
-  texCtx.fillStyle = hexColor;
-  texCtx.fillRect(TEX_X0, TEX_Y0, TEX_REG_W, TEX_REG_H);
-}
-
-// Wrap long text onto lines given a max width
-function wrapText(ctx, text, maxWidth) {
-  const words = text.split(' ');
-  const lines = [];
-  let current = '';
-  for (const word of words) {
-    const test = current ? `${current} ${word}` : word;
-    if (ctx.measureText(test).width > maxWidth && current) {
-      lines.push(current);
-      current = word;
+function writeDesign(d) {
+  if (!d) return;
+  if (d.front) {
+    $set('cpFrontColor', d.front.color); $set('cpFrontTextColor', d.front.textColor);
+    $set('cpFrontTitle', d.front.title); $set('cpFrontSubtitle', d.front.subtitle); $set('cpFrontAuthor', d.front.author);
+    $set('cpFrontFontSize', d.front.fontSize); $set('cpFrontFont', d.front.font);
+    $checkSet('cpFrontFrame', d.front.frame);
+    // Restore cover image from base64 data URL
+    if (d.front.imageData) {
+      const img = new Image();
+      img.onload = async () => {
+        frontImageData = d.front.imageData;
+        frontImageBitmap = await createImageBitmap(img);
+        document.getElementById('cpFrontImageName').textContent = '(cover image)';
+        rebuildTexture();
+      };
+      img.src = d.front.imageData;
     } else {
-      current = test;
+      frontImageData = null;
+      frontImageBitmap = null;
     }
   }
-  if (current) lines.push(current);
+  if (d.spine) {
+    $set('cpSpineColor', d.spine.color); $set('cpSpineTextColor', d.spine.textColor);
+    $set('cpSpineTitle', d.spine.title); $set('cpSpineAuthor', d.spine.author);
+    $set('cpSpineFontSize', d.spine.fontSize);
+    $checkSet('cpSpineBands', d.spine.bands);
+  }
+  if (d.back) {
+    $set('cpBackColor', d.back.color); $set('cpBackTextColor', d.back.textColor);
+    $set('cpBackBlurb', d.back.blurb); $set('cpBackFontSize', d.back.fontSize);
+    $checkSet('cpBackBarcode', d.back.barcode);
+  }
+  if (d.paper) {
+    $set('cpPaperColor', d.paper.color);
+    $checkSet('cpPaperGrain', d.paper.grain);
+    $set('cpPaperContent', d.paper.content);
+    $set('cpPaperFontSize', d.paper.fontSize);
+  }
+  syncHexLabels();
+  syncRangeLabels();
+}
+const $val   = (id) => document.getElementById(id).value;
+const $set   = (id, v) => { if (v != null) document.getElementById(id).value = v; };
+const $check = (id) => document.getElementById(id).checked;
+const $checkSet = (id, v) => { document.getElementById(id).checked = !!v; };
+
+function syncHexLabels() {
+  ['cpFrontColor','cpFrontTextColor','cpSpineColor','cpSpineTextColor','cpBackColor','cpBackTextColor','cpPaperColor'].forEach(id => {
+    const el = document.getElementById(id + 'Hex');
+    if (el) el.textContent = $val(id);
+  });
+}
+function syncRangeLabels() {
+  $('cpFrontFontSizeVal', $val('cpFrontFontSize'));
+  $('cpSpineFontSizeVal', $val('cpSpineFontSize'));
+  $('cpBackFontSizeVal',  $val('cpBackFontSize'));
+  $('cpPaperFontSizeVal', $val('cpPaperFontSize'));
+}
+function $(id, txt) { document.getElementById(id).textContent = txt; }
+
+// ── Text helpers ────────────────────────────────────────────────────────────
+function wrapText(ctx, text, maxWidth) {
+  const lines = [];
+  for (const para of text.split('\n')) {
+    const words = para.split(' ');
+    let cur = '';
+    for (const w of words) {
+      const t = cur ? cur + ' ' + w : w;
+      if (ctx.measureText(t).width > maxWidth && cur) { lines.push(cur); cur = w; }
+      else cur = t;
+    }
+    lines.push(cur);
+  }
   return lines;
 }
 
-// Draw title, subtitle, author centered in the cover region
-function drawCoverText(title, subtitle, author, fontSize, textColor) {
-  if (!texCtx) return;
-  const cx = TEX_X0 + TEX_REG_W / 2;   // center x of cover region
-  const cy = TEX_Y0 + TEX_REG_H / 2;   // center y of cover region
-  const maxW = TEX_REG_W * 0.85;
+// ── Per-zone painters ───────────────────────────────────────────────────────
+// Each painter draws WITHIN that zone's mask via destination-in clipping.
+// We achieve this by drawing into a per-zone scratch canvas, then compositing
+// with the mask, then blitting onto the main texCanvas.
 
+// Each zone's UV island is rendered onto the book with a 180° rotation
+// relative to canvas orientation (empirically verified: text painted right-side
+// up on canvas appears upside-down on the visible cover face). Compensate by
+// rotating the painter context 180° around the zone's centroid before drawing.
+// Paint into a zone's mask. The cover's UV mapping renders canvas pixels
+// with X mirrored on the visible face (verified by the BL corner test). The
+// outer face samples a SUB-RECTANGLE of the bone-classified bbox (not the
+// whole bbox — the rest is inner liner / hidden). Each painter passes that
+// sub-rectangle as `panel`, and we apply a horizontal mirror around the
+// PANEL center so the painter can author text in natural orientation —
+// the un-mirroring happens automatically when the GPU samples.
+// Paint into a region's pixel rect with optional X / Y mirror compensation.
+// Painters work in natural reading orientation (top-left = visible top-left
+// of the rendered face); the GPU's UV flip is undone by the per-region flags.
+function paintRegion(regionKey, paintFn) {
+  const r = REGIONS[regionKey];
+  if (!r) return;
   texCtx.save();
-  texCtx.fillStyle = textColor;
-  texCtx.textAlign = 'center';
-  texCtx.textBaseline = 'middle';
-
-  const hasTitle  = !!title.trim();
-  const hasSub    = !!subtitle.trim();
-  const hasAuthor = !!author.trim();
-  const totalItems = (hasTitle ? 1 : 0) + (hasSub ? 1 : 0) + (hasAuthor ? 1 : 0);
-  if (totalItems === 0) { texCtx.restore(); return; }
-
-  const titleSize   = Math.min(fontSize, TEX_REG_H * 0.14);
-  const subSize     = titleSize * 0.62;
-  const authorSize  = titleSize * 0.55;
-  const lineGap     = titleSize * 1.3;
-
-  // Compute total block height
-  let blockH = 0;
-  if (hasTitle)  blockH += titleSize;
-  if (hasSub)    blockH += subSize;
-  if (hasAuthor) blockH += authorSize;
-  if (hasTitle && (hasSub || hasAuthor)) blockH += lineGap * 0.5;
-  if (hasSub && hasAuthor) blockH += lineGap * 0.3;
-
-  let y = cy - blockH / 2 + titleSize / 2;
-
-  if (hasTitle) {
-    texCtx.font = `bold ${titleSize}px Georgia, serif`;
-    const lines = wrapText(texCtx, title.trim(), maxW);
-    lines.forEach((l, i) => texCtx.fillText(l, cx, y + i * lineGap));
-    y += lines.length * lineGap + lineGap * 0.3;
+  // Hard clip so painters can't bleed into neighbouring regions.
+  texCtx.beginPath();
+  texCtx.rect(r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0);
+  texCtx.clip();
+  // Flip around the region centre so canvas x/y still grow in their natural
+  // direction inside the painter — only the GPU sampling sees the mirror.
+  const cx = (r.x0 + r.x1) / 2, cy = (r.y0 + r.y1) / 2;
+  if (r.flipX || r.flipY) {
+    texCtx.translate(cx, cy);
+    texCtx.scale(r.flipX ? -1 : 1, r.flipY ? -1 : 1);
+    texCtx.translate(-cx, -cy);
   }
-
-  if (hasSub) {
-    texCtx.font = `${subSize}px Georgia, serif`;
-    texCtx.globalAlpha = 0.82;
-    const lines = wrapText(texCtx, subtitle.trim(), maxW);
-    lines.forEach((l, i) => texCtx.fillText(l, cx, y + i * lineGap * 0.85));
-    texCtx.globalAlpha = 1;
-    y += lines.length * lineGap * 0.85 + lineGap * 0.2;
-  }
-
-  if (hasAuthor) {
-    texCtx.font = `italic ${authorSize}px Georgia, serif`;
-    texCtx.globalAlpha = 0.75;
-    const lines = wrapText(texCtx, author.trim(), maxW);
-    lines.forEach((l, i) => texCtx.fillText(l, cx, y + i * lineGap * 0.75));
-    texCtx.globalAlpha = 1;
-  }
-
+  paintFn(texCtx, r);
   texCtx.restore();
 }
 
-// Apply tint by multiply-blending a color over the whole texture
-function applyTextureTint(hexColor) {
-  if (!hexColor || hexColor === '#FFFFFF') return;
-  texCtx.save();
-  texCtx.globalCompositeOperation = 'multiply';
-  texCtx.fillStyle = hexColor;
-  texCtx.fillRect(0, 0, TEX_W, TEX_H);
-  texCtx.restore();
+// ── Painters — each draws into one REGIONS rect, using natural top-left coords ─
+function paintFront(d) {
+  paintRegion('front', (ctx, r) => {
+    const w = r.x1 - r.x0, h = r.y1 - r.y0;
+    ctx.fillStyle = d.front.color;
+    ctx.fillRect(r.x0, r.y0, w, h);
+
+    if (frontImageBitmap) {
+      const iaspect = frontImageBitmap.width / frontImageBitmap.height;
+      const paspect = w / h;
+      let sx, sy, sw, sh;
+      if (iaspect > paspect) {
+        sh = frontImageBitmap.height; sw = sh * paspect;
+        sx = (frontImageBitmap.width - sw) / 2; sy = 0;
+      } else {
+        sw = frontImageBitmap.width; sh = sw / paspect;
+        sx = 0; sy = (frontImageBitmap.height - sh) / 2;
+      }
+      ctx.drawImage(frontImageBitmap, sx, sy, sw, sh, r.x0, r.y0, w, h);
+      return; // image fills the whole front cover, no frame/text
+    }
+
+    if (d.front.frame) {
+      const inset = Math.min(w, h) * 0.04;
+      ctx.strokeStyle = d.front.textColor;
+      ctx.lineWidth = Math.max(3, Math.min(w, h) * 0.008);
+      ctx.strokeRect(r.x0 + inset, r.y0 + inset, w - inset*2, h - inset*2);
+      ctx.lineWidth *= 0.4;
+      ctx.strokeRect(r.x0 + inset + 10, r.y0 + inset + 10, w - inset*2 - 20, h - inset*2 - 20);
+    }
+
+    // Title / subtitle / author block, centered top-down (natural reading order)
+    ctx.fillStyle = d.front.textColor;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const cx = r.x0 + w / 2;
+    const titleSize  = d.front.fontSize * (Math.min(w, h) / 700);
+    const subSize    = titleSize * 0.55;
+    const authorSize = titleSize * 0.5;
+    const maxW = w * 0.85;
+
+    const t = d.front.title.trim(), s = d.front.subtitle.trim(), a = d.front.author.trim();
+    ctx.font = `bold ${titleSize}px ${d.front.font}`;
+    const titleLines  = t ? wrapText(ctx, t, maxW) : [];
+    ctx.font = `${subSize}px ${d.front.font}`;
+    const subLines    = s ? wrapText(ctx, s, maxW) : [];
+    ctx.font = `italic ${authorSize}px ${d.front.font}`;
+    const authorLines = a ? wrapText(ctx, a, maxW) : [];
+
+    const lineGap = titleSize * 1.15;
+    const subGap  = subSize  * 1.2;
+    const authGap = authorSize * 1.2;
+    const blockH  = titleLines.length * lineGap
+                  + (subLines.length    ? subLines.length    * subGap  + lineGap*0.4 : 0)
+                  + (authorLines.length ? authorLines.length * authGap + lineGap*0.6 : 0);
+    let y = r.y0 + h * 0.5 - blockH / 2;
+    ctx.font = `bold ${titleSize}px ${d.front.font}`;
+    titleLines.forEach(l => { ctx.fillText(l, cx, y + lineGap/2); y += lineGap; });
+    if (subLines.length) {
+      y += lineGap * 0.4;
+      ctx.font = `${subSize}px ${d.front.font}`;
+      ctx.globalAlpha = 0.85;
+      subLines.forEach(l => { ctx.fillText(l, cx, y + subGap/2); y += subGap; });
+      ctx.globalAlpha = 1;
+    }
+    if (authorLines.length) {
+      y += lineGap * 0.6;
+      ctx.font = `italic ${authorSize}px ${d.front.font}`;
+      ctx.globalAlpha = 0.85;
+      authorLines.forEach(l => { ctx.fillText(l, cx, y + authGap/2); y += authGap; });
+      ctx.globalAlpha = 1;
+    }
+  });
 }
 
-// Render the preview in the panel
+function paintSpine(d) {
+  paintRegion('spine', (ctx, r) => {
+    const w = r.x1 - r.x0, h = r.y1 - r.y0;
+    ctx.fillStyle = d.spine.color;
+    ctx.fillRect(r.x0, r.y0, w, h);
+
+    if (d.spine.bands) {
+      ctx.fillStyle = d.spine.textColor;
+      const bandH = h * 0.018;
+      ctx.fillRect(r.x0, r.y0 + h * 0.06, w, bandH);
+      ctx.fillRect(r.x0, r.y1 - h * 0.06 - bandH, w, bandH);
+    }
+
+    // Vertical title (top-to-bottom on the rendered spine = rotate -90°)
+    ctx.save();
+    ctx.translate(r.x0 + w / 2, r.y0 + h / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = d.spine.textColor;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const size = d.spine.fontSize * (h / 1500);
+    if (d.spine.title.trim()) {
+      ctx.font = `bold ${size * 1.2}px Georgia, serif`;
+      ctx.fillText(d.spine.title.trim(), -h * 0.05, 0);
+    }
+    if (d.spine.author.trim()) {
+      ctx.font = `${size * 0.7}px Georgia, serif`;
+      ctx.fillText(d.spine.author.trim(), h * 0.32, 0);
+    }
+    ctx.restore();
+  });
+}
+
+function paintBack(d) {
+  paintRegion('back', (ctx, r) => {
+    const w = r.x1 - r.x0, h = r.y1 - r.y0;
+    ctx.fillStyle = d.back.color;
+    ctx.fillRect(r.x0, r.y0, w, h);
+
+    // Publisher safe zone — 10% inset all around, separate strip for barcode
+    const safeX = w * 0.10, safeY = h * 0.12;
+    const sx0 = r.x0 + safeX, sy0 = r.y0 + safeY;
+    const sw  = w - safeX * 2, sh = h - safeY * 2;
+    const barcodeH = d.back.barcode ? sh * 0.18 : 0;
+    const blurbH   = sh - barcodeH;
+
+    ctx.fillStyle = d.back.textColor;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    const size = d.back.fontSize * (Math.min(sw, blurbH) / 700);
+    ctx.font = `${size}px Georgia, serif`;
+    const lineH = size * 1.45;
+    const lines = wrapText(ctx, d.back.blurb, sw);
+    const maxLines = Math.floor(blurbH / lineH);
+    let y = sy0;
+    for (const ln of lines.slice(0, maxLines)) { ctx.fillText(ln, sx0, y); y += lineH; }
+
+    if (d.back.barcode) {
+      const bw = sw * 0.30, bh = barcodeH * 0.85;
+      const bx = sx0 + sw - bw, by = sy0 + sh - bh;
+      ctx.fillStyle = '#fff'; ctx.fillRect(bx, by, bw, bh);
+      ctx.fillStyle = '#000';
+      for (let i = 0; i < 32; i++) {
+        const stripeW = bw / 64;
+        if (i % 3 !== 1) ctx.fillRect(bx + i * (bw/32), by + 4, stripeW * (i % 2 ? 1.5 : 1), bh - 18);
+      }
+      ctx.font = `${bh*0.22}px monospace`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      ctx.fillText('9 780000 000000', bx + bw/2, by + bh - 2);
+    }
+  });
+}
+
+function paintPaperEdges(d) {
+  paintRegion('paperEdges', (ctx, r) => {
+    const w = r.x1 - r.x0, h = r.y1 - r.y0;
+    ctx.fillStyle = d.paper.color;
+    ctx.fillRect(r.x0, r.y0, w, h);
+    if (d.paper.grain) {
+      // faint horizontal page-edge striations
+      ctx.globalAlpha = 0.18;
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 1;
+      for (let y = r.y0 + 2; y < r.y1 - 2; y += 3) {
+        ctx.beginPath(); ctx.moveTo(r.x0, y); ctx.lineTo(r.x1, y); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
+  });
+}
+
+function paintBookContent(d) {
+  // Inside-page text gets split across the upper and lower content rects
+  // (left page / right page of an open spread).
+  const fullText = (d.paper.content || '').trim();
+  if (!fullText) {
+    // still fill paper color so the page surface isn't black
+    for (const k of ['contentUpper', 'contentLower']) {
+      paintRegion(k, (ctx, r) => {
+        ctx.fillStyle = d.paper.color;
+        ctx.fillRect(r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0);
+      });
+    }
+    return;
+  }
+
+  // Pre-wrap the full text once so we can split lines across the two pages.
+  const measureC = document.createElement('canvas').getContext('2d');
+  const fs = d.paper.fontSize || 22;
+  measureC.font = `${fs}px Georgia, serif`;
+  const upperRect = REGIONS.contentUpper;
+  const colW = (upperRect.x1 - upperRect.x0) - 80; // account for inner margins
+  const allLines = wrapText(measureC, fullText, colW);
+  const lineH = fs * 1.5;
+
+  const drawHalf = (key, lines) => {
+    paintRegion(key, (ctx, r) => {
+      const w = r.x1 - r.x0, h = r.y1 - r.y0;
+      ctx.fillStyle = d.paper.color;
+      ctx.fillRect(r.x0, r.y0, w, h);
+      if (d.paper.grain) {
+        // very subtle grain — printed paper isn't pure white
+        const img = ctx.getImageData(r.x0, r.y0, w, h);
+        const data = img.data;
+        for (let i = 0; i < data.length; i += 4) {
+          const n = (Math.random() - 0.5) * 6;
+          data[i]   += n; data[i+1] += n; data[i+2] += n;
+        }
+        ctx.putImageData(img, r.x0, r.y0);
+      }
+      ctx.fillStyle = 'rgba(40,30,20,0.92)';
+      ctx.font = `${fs}px Georgia, serif`;
+      ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      const margin = 40;
+      let y = r.y0 + margin;
+      for (const ln of lines) {
+        if (y + lineH > r.y1 - margin) break;
+        ctx.fillText(ln, r.x0 + margin, y);
+        y += lineH;
+      }
+    });
+  };
+
+  const upperCapacity = Math.floor(((upperRect.y1 - upperRect.y0) - 80) / lineH);
+  drawHalf('contentUpper', allLines.slice(0, upperCapacity));
+  drawHalf('contentLower', allLines.slice(upperCapacity));
+}
+
+// ── Calibration overlay ─────────────────────────────────────────────────────
+// Paints each REGIONS rect as a flat solid color matching the user's overlay
+// legend, plus TL / TR / BL / BR letters at corners so per-region orientation
+// flags can be verified by reading which letter ends up where on the rendered
+// book. Activated by the "Show region overlay" checkbox.
+function paintCalibrationOverlay() {
+  for (const [key, r] of Object.entries(REGIONS)) {
+    paintRegion(key, (ctx, _r) => {
+      const w = r.x1 - r.x0, h = r.y1 - r.y0;
+      ctx.fillStyle = r.color;
+      ctx.fillRect(r.x0, r.y0, w, h);
+      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      ctx.font = `bold ${Math.min(w, h) * 0.12}px sans-serif`;
+      ctx.textBaseline = 'top';
+      ctx.textAlign = 'left';   ctx.fillText('TL', r.x0 + 8, r.y0 + 4);
+      ctx.textAlign = 'right';  ctx.fillText('TR', r.x1 - 8, r.y0 + 4);
+      ctx.textBaseline = 'bottom';
+      ctx.textAlign = 'left';   ctx.fillText('BL', r.x0 + 8, r.y1 - 4);
+      ctx.textAlign = 'right';  ctx.fillText('BR', r.x1 - 8, r.y1 - 4);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(r.label, r.x0 + w/2, r.y0 + h/2);
+    });
+  }
+}
+
+// ── Main compositor ─────────────────────────────────────────────────────────
+function rebuildTexture() {
+  if (!coverDesignerReady) return;
+  const d = readDesign();
+  texCtx.clearRect(0, 0, TEX_W, TEX_H);
+
+  if (document.getElementById('cpShowZones').checked) {
+    paintCalibrationOverlay();
+  } else {
+    paintPaperEdges(d);
+    paintBookContent(d);
+    paintBack(d);
+    paintSpine(d);
+    paintFront(d);
+  }
+
+  renderPreview();
+  if (liveBookTexture) applyTextureToBook(true);
+}
+
+let liveBookTexture = false;
+function applyTextureToBook(silent) {
+  if (!bookMaterial || !texCanvas) return;
+  if (bookMaterial.map && bookMaterial.map._isCustomCanvas) {
+    bookMaterial.map.needsUpdate = true;
+  } else {
+    if (bookMaterial.map) bookMaterial.map.dispose();
+    const newTex = new THREE.CanvasTexture(texCanvas);
+    newTex.colorSpace = THREE.SRGBColorSpace;
+    newTex.flipY = false; // glTF default
+    // Match original sampler
+    newTex.wrapS = THREE.RepeatWrapping;
+    newTex.wrapT = THREE.RepeatWrapping;
+    newTex._isCustomCanvas = true;
+    bookMaterial.map = newTex;
+    bookMaterial.needsUpdate = true;
+  }
+  liveBookTexture = true;
+}
+
+// ── Preview canvas ──────────────────────────────────────────────────────────
 function renderPreview() {
   const preview = document.getElementById('cpPreview');
   if (!preview || !texCanvas) return;
   const pctx = preview.getContext('2d');
-  pctx.clearRect(0, 0, preview.width, preview.height);
-  // Scale the full 2048 texture to fit preview width
-  pctx.drawImage(texCanvas, 0, 0, preview.width, preview.height * (preview.width / TEX_W));
+  pctx.fillStyle = '#1a1a22';
+  pctx.fillRect(0, 0, preview.width, preview.height);
+  pctx.drawImage(texCanvas, 0, 0, preview.width, preview.height);
 
-  // Draw a border around the cover region
-  const sx = TEX_X0 / TEX_W * preview.width;
-  const sy = TEX_Y0 / TEX_H * preview.height * (preview.width / TEX_W);
-  const sw = TEX_REG_W / TEX_W * preview.width;
-  const sh = TEX_REG_H / TEX_H * preview.height * (preview.width / TEX_W);
-  pctx.strokeStyle = '#c864ff';
-  pctx.lineWidth = 2;
-  pctx.strokeRect(sx, sy, sw, sh);
-}
-
-// Upload the canvas as the book's texture
-function applyTextureToBook() {
-  if (!bookMaterial || !texCanvas) return;
-  const newTex = new THREE.CanvasTexture(texCanvas);
-  newTex.colorSpace = THREE.SRGBColorSpace;
-  newTex.needsUpdate = true;
-  if (bookMaterial.map) bookMaterial.map.dispose();
-  bookMaterial.map = newTex;
-  bookMaterial.needsUpdate = true;
-}
-
-// Apply paper color to the pages mesh
-function applyPaperColor(hexColor) {
-  if (!pagesMaterial) return;
-  pagesMaterial.color.set(new THREE.Color(hexColor));
-  pagesMaterial.needsUpdate = true;
-}
-
-// ── UI wiring ────────────────────────────────────────────────────────────────
-
-document.getElementById('coverDesignerBtn').addEventListener('click', async () => {
-  const panel = document.getElementById('coverPanel');
-  panel.style.display = 'block';
-  if (!coverDesignerReady) {
-    await loadOriginalTexture();
-    coverDesignerReady = true;
-    renderPreview();
-  } else {
-    renderPreview();
+  // Outline every REGIONS rect on the preview so the operator can sanity-check
+  // the addressable surfaces (also drawn when the calibration overlay is off).
+  const sx = preview.width / TEX_W, sy = preview.height / TEX_H;
+  pctx.lineWidth = 1.5;
+  for (const r of Object.values(REGIONS)) {
+    pctx.strokeStyle = r.color;
+    pctx.strokeRect(r.x0*sx, r.y0*sy, (r.x1-r.x0)*sx, (r.y1-r.y0)*sy);
+    pctx.fillStyle = r.color;
+    pctx.font = 'bold 10px sans-serif';
+    pctx.fillText(r.label, r.x0*sx + 3, r.y0*sy + 11);
   }
-});
+}
 
+// ── Designer init (lazy on first open) ─────────────────────────────────────
+async function initDesigner() {
+  if (coverDesignerReady) return;
+  if (!bookMesh) { console.warn('[CoverDesigner] cover mesh not yet loaded'); return; }
+  texCanvas = document.createElement('canvas');
+  texCanvas.width = TEX_W; texCanvas.height = TEX_H;
+  texCtx = texCanvas.getContext('2d');
+  coverDesignerReady = true;
+  loadDesignList();
+  syncHexLabels();
+  syncRangeLabels();
+  rebuildTexture();
+}
+
+// ── UI wiring ──────────────────────────────────────────────────────────────
+document.getElementById('coverDesignerBtn').addEventListener('click', async () => {
+  document.getElementById('coverPanel').style.display = 'block';
+  await initDesigner();
+});
 document.getElementById('cpClose').addEventListener('click', () => {
   document.getElementById('coverPanel').style.display = 'none';
 });
 
-// Rebuild full texture from settings and show live preview
-function liveUpdate() {
-  if (!coverDesignerReady) return;
-  const title     = document.getElementById('cpTitle').value;
-  const subtitle  = document.getElementById('cpSubtitle').value;
-  const author    = document.getElementById('cpAuthor').value;
-  const fontSize  = parseInt(document.getElementById('cpFontSize').value);
-  const textColor = document.getElementById('cpTextColor').value;
-  const coverColor= document.getElementById('cpCoverColor').value;
-  const tintColor = document.getElementById('cpTintColor').value;
-
-  // Reset from original texture
-  texCtx.clearRect(0, 0, TEX_W, TEX_H);
-  texCtx.drawImage(texOriginal, 0, 0);
-
-  // Apply tint over full texture
-  if (tintColor !== '#FFFFFF') {
-    texCtx.save();
-    texCtx.globalCompositeOperation = 'multiply';
-    texCtx.fillStyle = tintColor;
-    texCtx.fillRect(0, 0, TEX_W, TEX_H);
-    texCtx.restore();
-  }
-
-  // Fill cover region with solid color (overwrites texture in that area)
-  fillCoverRegion(coverColor);
-
-  // Draw text on top
-  drawCoverText(title, subtitle, author, fontSize, textColor);
-
-  renderPreview();
-}
-
-// Wire live update events
-['cpTitle', 'cpSubtitle', 'cpAuthor'].forEach((id) => {
-  document.getElementById(id).addEventListener('input', liveUpdate);
-});
-document.getElementById('cpFontSize').addEventListener('input', () => {
-  document.getElementById('cpFontSizeVal').textContent = document.getElementById('cpFontSize').value + 'px';
-  liveUpdate();
-});
-['cpTextColor', 'cpCoverColor'].forEach((id) => {
-  document.getElementById(id).addEventListener('input', () => {
-    const hex = document.getElementById(id).value;
-    document.getElementById(id + 'Hex').textContent = hex;
-    liveUpdate();
+// Tabs
+document.querySelectorAll('.cp-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    const target = tab.dataset.tab;
+    document.querySelectorAll('.cp-tab').forEach(t => t.classList.toggle('active', t === tab));
+    document.querySelectorAll('.cp-page').forEach(p => p.classList.toggle('active', p.dataset.page === target));
   });
 });
-document.getElementById('cpTintColor').addEventListener('input', () => {
-  const v = document.getElementById('cpTintColor').value;
-  document.getElementById('cpTintColorHex').textContent = v === '#FFFFFF' ? '#FFFFFF (none)' : v;
-  liveUpdate();
-});
-document.getElementById('cpPaperColor').addEventListener('input', () => {
-  const hex = document.getElementById('cpPaperColor').value;
-  document.getElementById('cpPaperColorHex').textContent = hex;
-  applyPaperColor(hex);
+
+// Wire all inputs to live update
+const LIVE_IDS = [
+  'cpFrontColor','cpFrontTextColor','cpFrontTitle','cpFrontSubtitle','cpFrontAuthor',
+  'cpFrontFontSize','cpFrontFont','cpFrontFrame',
+  'cpSpineColor','cpSpineTextColor','cpSpineTitle','cpSpineAuthor','cpSpineFontSize','cpSpineBands',
+  'cpBackColor','cpBackTextColor','cpBackBlurb','cpBackFontSize','cpBackBarcode',
+  'cpPaperColor','cpPaperGrain','cpPaperContent','cpPaperFontSize',
+];
+LIVE_IDS.forEach(id => {
+  const el = document.getElementById(id);
+  el.addEventListener('input', () => { syncHexLabels(); syncRangeLabels(); rebuildTexture(); });
+  el.addEventListener('change', () => { syncHexLabels(); syncRangeLabels(); rebuildTexture(); });
 });
 
-// Apply button — upload texture to the 3D book
+// Show-zones debug toggle
+document.getElementById('cpShowZones').addEventListener('change', () => { rebuildTexture(); applyTextureToBook(true); });
+
+// Front cover image upload
+document.getElementById('cpFrontImage').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  document.getElementById('cpFrontImageName').textContent = file ? file.name : '';
+  if (!file) { frontImageBitmap = null; frontImageData = null; rebuildTexture(); return; }
+  // Store as base64 for design persistence
+  frontImageData = await new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (ev) => resolve(ev.target.result);
+    reader.readAsDataURL(file);
+  });
+  frontImageBitmap = await createImageBitmap(file);
+  rebuildTexture();
+});
+
+// Apply button — push to 3D
 document.getElementById('cpApply').addEventListener('click', () => {
   if (!coverDesignerReady) return;
   applyTextureToBook();
-  document.getElementById('coverPanel').style.display = 'none';
+});
+
+// Download PNG (final unwrapped texture as the GPU sees it)
+document.getElementById('cpDownload').addEventListener('click', () => {
+  if (!texCanvas) return;
+  const a = document.createElement('a');
+  a.href = texCanvas.toDataURL('image/png');
+  a.download = 'book-cover-design.png';
+  a.click();
+});
+
+// Download JSON — the portable design config that biblio will consume.
+// Image data isn't included (designs reference imported assets by URL/blob).
+document.getElementById('cpDownloadJSON').addEventListener('click', () => {
+  const d = readDesign();
+  const payload = {
+    schema: 'biblio-book-design/v1',
+    exportedAt: new Date().toISOString(),
+    design: d,
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${(d.front.title || 'untitled').replace(/[^a-z0-9-]+/gi, '_').toLowerCase()}.book.json`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+
+// ── Persistence ─────────────────────────────────────────────────────────────
+const DESIGN_KEY = 'bookCoverDesigns';
+function loadDesignList() {
+  const sel = document.getElementById('cpDesignSelect');
+  sel.innerHTML = '<option value="">— Load design —</option>';
+  const list = JSON.parse(localStorage.getItem(DESIGN_KEY) || '[]');
+  list.forEach((d, i) => {
+    const o = document.createElement('option');
+    o.value = i; o.textContent = d.name;
+    sel.appendChild(o);
+  });
+}
+document.getElementById('cpSaveBtn').addEventListener('click', () => {
+  const name = prompt('Design name:');
+  if (!name || !name.trim()) return;
+  const list = JSON.parse(localStorage.getItem(DESIGN_KEY) || '[]');
+  list.push({ name: name.trim(), design: readDesign() });
+  localStorage.setItem(DESIGN_KEY, JSON.stringify(list));
+  loadDesignList();
+});
+document.getElementById('cpDesignSelect').addEventListener('change', (e) => {
+  const idx = e.target.value; if (idx === '') return;
+  const list = JSON.parse(localStorage.getItem(DESIGN_KEY) || '[]');
+  if (!list[idx]) return;
+  writeDesign(list[idx].design);
+  rebuildTexture();
+  e.target.value = '';
+});
+document.getElementById('cpDelBtn').addEventListener('click', () => {
+  const sel = document.getElementById('cpDesignSelect');
+  const idx = sel.value; if (idx === '') { alert('Pick a design to delete first.'); return; }
+  const list = JSON.parse(localStorage.getItem(DESIGN_KEY) || '[]');
+  list.splice(idx, 1);
+  localStorage.setItem(DESIGN_KEY, JSON.stringify(list));
+  loadDesignList();
 });
 
 
