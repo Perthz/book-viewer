@@ -560,25 +560,14 @@ loader.load('./scene.gltf', (gltf) => {
     if (!bookMesh && o.geometry.attributes.position.count >= 200) {
       bookMesh = o;
       bookMaterial = o.material;
-      console.log('[CoverDesigner] captured cover mesh:', o.name, 'verts:', o.geometry.attributes.position.count);
     } else {
       allPagesMeshes.push(o);
-      console.log('[CoverDesigner] captured pages mesh:', o.name, 'verts:', o.geometry.attributes.position.count);
     }
   }
-  pagesMesh = allPagesMeshes[0] || null;
   pagesMeshes = allPagesMeshes;
-  // (debug) expose for browser-console inspection during development
-  window.__bookMesh = bookMesh; window.__bookMat = bookMaterial;
-  window.__camera = camera; window.__orbit = orbitControls; window.__bookGroup = bookGroup;
-  // Pages share the cover material in this glTF — leave them as-is so book
-  // content painted into REGIONS.contentUpper/contentLower lands on the
-  // actual page surfaces.
-  pagesMaterial = bookMaterial;
-  // Strip the cover material's normal and metallic-roughness maps. They were
-  // baked from the ORIGINAL artwork (red leather + gold ornament bumps), so
-  // they keep imprinting the old design over our designer's flat fill. Leave
-  // the basic PBR sliders untouched; we re-add a leather feel later.
+  // Strip the cover material's normal and metallic-roughness maps — they were
+  // baked from the original artwork and keep imprinting it over the designer's
+  // flat fill. Leave the basic PBR sliders alone.
   if (bookMaterial) {
     if (bookMaterial.normalMap) { bookMaterial.normalMap.dispose(); bookMaterial.normalMap = null; }
     if (bookMaterial.metalnessMap) { bookMaterial.metalnessMap.dispose(); bookMaterial.metalnessMap = null; }
@@ -587,9 +576,6 @@ loader.load('./scene.gltf', (gltf) => {
     bookMaterial.metalness = 0;
     bookMaterial.needsUpdate = true;
   }
-
-  // Stand the book upright: model's Z axis → world Y (up).
-  // applyRotation() below will set the full rotation (base + slider offsets).
 
   // Measure intrinsic size at scale 1 so cm sliders map to scene units.
   const measureBox = new THREE.Box3().setFromObject(gltf.scene);
@@ -607,20 +593,10 @@ loader.load('./scene.gltf', (gltf) => {
   }
 
   applySize(DEFAULT_W, DEFAULT_H, DEFAULT_T);
-  applyRotation(); // set initial orientation (upright + any slider defaults)
-  // bookGroup.position stays at (0,0,0). The SkinnedMesh at time=0 (closed-book
-  // pose) has its rendered centroid very close to world origin already — empirically
-  // confirmed by placing camera at z=8 and seeing the book approximately centred.
-  // Using Box3.setFromObject() here gives the REST-POSE bounding box, which is
-  // wrong for a skinned mesh (vertices are spread in the bind pose) and would
-  // push the actual rendered book completely out of the camera's view.
-
-  // Camera distance: the rendered (skinned) book at refScale is much smaller
-  // than the rest-pose bbox used by baseSize. Calibrate to actual rendered size:
-  // at refScale the book face is ~1.5 world units tall, so dist≈5 fills ~33% of
-  // the viewport (fov=50). Scale by max(w,h)/DEFAULT_H for larger/smaller books.
-  const maxCm = Math.max(DEFAULT_W, DEFAULT_H);
-  const dist = 5 * (maxCm / DEFAULT_H);
+  applyRotation();
+  // Leave bookGroup.position at origin — the skinned closed-book pose centroid
+  // sits near origin already; Box3 on a SkinnedMesh returns the rest-pose bbox
+  // which would push the rendered book out of view.
   camera.lookAt(0, 0, 0);
   orbitControls.target.set(0, 0, 0);
   orbitControls.update();
@@ -788,8 +764,8 @@ const TEX_W = 2048, TEX_H = 2048;
 let texCanvas = null, texCtx = null;       // main 2048² compositor
 const paperRimImg = new Image();
 paperRimImg.src = './textures/paper_rim.png';
-let bookMesh = null, pagesMesh = null, pagesMeshes = [];
-let bookMaterial = null, pagesMaterial = null;
+let bookMesh = null, pagesMeshes = [];
+let bookMaterial = null;
 let coverDesignerReady = false;
 let frontImageBitmap = null;               // user-uploaded cover image (runtime)
 let frontImageData = null;                 // base64 data URL (persisted in design)
