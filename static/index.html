@@ -141,16 +141,16 @@
   </div>
   <hr class="divider">
   <div class="rot-row">
-    <div class="rot-label"><span>Flip X</span><span><span id="rotXVal">0</span>°</span></div>
-    <input type="range" id="rotXSlider" min="0" max="360" step="1" value="0">
+    <div class="rot-label"><span>Rotate X</span><span><span id="rotXVal">0</span>°</span></div>
+    <input type="range" id="rotXSlider" min="-180" max="180" step="1" value="0">
   </div>
   <div class="rot-row">
-    <div class="rot-label"><span>Flip Y</span><span><span id="rotYVal">0</span>°</span></div>
-    <input type="range" id="rotYSlider" min="-10000" max="10000" step="1" value="0">
+    <div class="rot-label"><span>Rotate Y</span><span><span id="rotYVal">0</span>°</span></div>
+    <input type="range" id="rotYSlider" min="-180" max="180" step="1" value="0">
   </div>
   <div class="rot-row">
-    <div class="rot-label"><span>Flip Z</span><span><span id="rotZVal">0</span>°</span></div>
-    <input type="range" id="rotZSlider" min="-10000" max="10000" step="1" value="0">
+    <div class="rot-label"><span>Rotate Z</span><span><span id="rotZVal">0</span>°</span></div>
+    <input type="range" id="rotZSlider" min="-180" max="180" step="1" value="0">
   </div>
   <hr class="divider">
   <button id="resetBtn">Reset</button>
@@ -397,8 +397,8 @@ function makeGradientTexture(top, bottom) {
   return tex;
 }
 
-const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 5000);
-camera.position.set(0, 20, 60);
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.05, 100);
+camera.position.set(0, 0.3, 4);
 
 // ── Controls ─────────────────────────────────────────────────────────────────
 // OrbitControls: left-drag would rotate the camera — but we use custom drag
@@ -407,8 +407,8 @@ camera.position.set(0, 20, 60);
 const orbitControls = new OrbitControls(camera, renderer.domElement);
 orbitControls.enableDamping = true;
 orbitControls.dampingFactor = 0.06;
-orbitControls.minDistance = 5;
-orbitControls.maxDistance = 500;
+orbitControls.minDistance = 0.3;
+orbitControls.maxDistance = 20;
 orbitControls.target.set(0, 0, 0);
 orbitControls.enableRotate = false; // book rotation is handled manually below
 
@@ -422,6 +422,10 @@ renderer.domElement.addEventListener('mousedown', (e) => {
   lastY = e.clientY;
 });
 
+// Wrap any angle into [-180, 180] so dragging spins the book freely while the
+// slider thumb stays in its usable range.
+const wrapAngle = (v) => ((parseFloat(v) + 180) % 360 + 360) % 360 - 180;
+
 window.addEventListener('mousemove', (e) => {
   if (!isDragging) return;
   const dx = e.clientX - lastX;
@@ -429,10 +433,9 @@ window.addEventListener('mousemove', (e) => {
   lastX = e.clientX;
   lastY = e.clientY;
 
-  // Horizontal drag → Z rotation
-  rotZSlider.value = parseInt(rotZSlider.value) + dx * 0.5;
-  // Vertical drag → Y rotation (inverted)
-  rotYSlider.value = parseInt(rotYSlider.value) - dy * 0.5;
+  // Horizontal drag → Z rotation; vertical drag → Y rotation (inverted)
+  rotZSlider.value = wrapAngle(parseFloat(rotZSlider.value) + dx * 0.5);
+  rotYSlider.value = wrapAngle(parseFloat(rotYSlider.value) - dy * 0.5);
 
   rotYVal.textContent = Math.round(rotYSlider.value);
   rotZVal.textContent = Math.round(rotZSlider.value);
@@ -676,12 +679,12 @@ function applyDefaultPosition() {
   const stored = JSON.parse(localStorage.getItem('bookViewerPositions') || '[]');
   const front = stored.find(p => p.name.toLowerCase() === 'front');
   if (!front) return;
-  rotXSlider.value = front.rx;
-  rotYSlider.value = front.ry;
-  rotZSlider.value = front.rz;
-  rotXVal.textContent = front.rx;
-  rotYVal.textContent = front.ry;
-  rotZVal.textContent = front.rz;
+  rotXSlider.value = wrapAngle(front.rx);
+  rotYSlider.value = wrapAngle(front.ry);
+  rotZSlider.value = wrapAngle(front.rz);
+  rotXVal.textContent = rotXSlider.value;
+  rotYVal.textContent = rotYSlider.value;
+  rotZVal.textContent = rotZSlider.value;
   applyRotation();
   applyCameraState(front);
 }
@@ -692,12 +695,12 @@ posSelect.addEventListener('change', () => {
   const stored = JSON.parse(localStorage.getItem('bookViewerPositions') || '[]');
   const p = stored[idx];
   if (!p) return;
-  rotXSlider.value = p.rx;
-  rotYSlider.value = p.ry;
-  rotZSlider.value = p.rz;
-  rotXVal.textContent = p.rx;
-  rotYVal.textContent = p.ry;
-  rotZVal.textContent = p.rz;
+  rotXSlider.value = wrapAngle(p.rx);
+  rotYSlider.value = wrapAngle(p.ry);
+  rotZSlider.value = wrapAngle(p.rz);
+  rotXVal.textContent = rotXSlider.value;
+  rotYVal.textContent = rotYSlider.value;
+  rotZVal.textContent = rotZSlider.value;
   applyRotation();
   applyCameraState(p);
   posSelect.value = '';
