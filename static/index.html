@@ -439,17 +439,17 @@ let animating = false;
 
 function applySize(wCm, hCm, tCm) {
   if (!bookGroup) return;
-  // Per-axis scaling so each slider controls its own dimension in cm.
-  // baseSize is the model's bounding box at scale 1 (in model units). We treat
-  // 1 model unit ≈ 1 cm at the default-h calibration: dividing the slider cm
-  // value by baseSize.<axis> gives a scale factor that makes the rendered
-  // dimension match the slider label.
-  // Caveat: non-uniform scale on a SkinnedMesh shears the geometry slightly
-  // when the open/close animation runs (bone interpolation under non-uniform
-  // parent scale). It's clean when the book is closed.
-  const sx = wCm / baseSize.x;
-  const sy = tCm / baseSize.y;   // thickness → Y axis
-  const sz = hCm / baseSize.z;   // height → Z axis (becomes vertical after -90° X rotation)
+  // refScale is the uniform scale that makes the model look like a standard book
+  // at the default dimensions (same reference the old uniform-scale code used).
+  // Per-axis: multiply refScale by the ratio of the requested cm to the default cm.
+  // At defaults (DEFAULT_W/H/T) all three axes equal refScale → same as old uniform
+  // scale, so the book looks identical to the previously working state.
+  // Each slider then changes only its own axis proportionally from that baseline:
+  // doubling W doubles the visual width, doubling H doubles the visual height, etc.
+  const refScale = DEFAULT_H / baseSize.y;
+  const sx = refScale * (wCm / DEFAULT_W);   // width  → model X axis
+  const sy = refScale * (tCm / DEFAULT_T);   // thickness → model Y axis (depth after rotation)
+  const sz = refScale * (hCm / DEFAULT_H);   // height → model Z axis (up after rotation)
   bookGroup.scale.set(sx, sy, sz);
 }
 
@@ -571,11 +571,6 @@ loader.load('./scene.gltf', (gltf) => {
   const measured = measureBox.getSize(new THREE.Vector3());
   baseSize = { x: measured.x, y: measured.y, z: measured.z };
 
-  // Center the book at world origin so OrbitControls.target = (0,0,0) is correct.
-  const box = new THREE.Box3().setFromObject(bookGroup);
-  const center = box.getCenter(new THREE.Vector3());
-  bookGroup.position.sub(center);
-
   if (gltf.animations && gltf.animations.length > 0) {
     mixer = new THREE.AnimationMixer(bookGroup);
     const clip = gltf.animations[0];
@@ -588,11 +583,19 @@ loader.load('./scene.gltf', (gltf) => {
 
   applySize(DEFAULT_W, DEFAULT_H, DEFAULT_T);
   applyRotation(); // set initial orientation (upright + any slider defaults)
+  // bookGroup.position stays at (0,0,0). The SkinnedMesh at time=0 (closed-book
+  // pose) has its rendered centroid very close to world origin already — empirically
+  // confirmed by placing camera at z=8 and seeing the book approximately centred.
+  // Using Box3.setFromObject() here gives the REST-POSE bounding box, which is
+  // wrong for a skinned mesh (vertices are spread in the bind pose) and would
+  // push the actual rendered book completely out of the camera's view.
 
-  // Camera positioned to frame the book nicely — OrbitControls orbits around (0,0,0).
-  const maxDim = Math.max(baseSize.x, baseSize.y, baseSize.z);
-  const dist = maxDim / (2 * Math.tan((camera.fov * Math.PI / 180) / 2)) * 2.2;
-  camera.position.set(dist * 0.5, dist * 0.35, dist);
+  // Camera distance: the rendered (skinned) book at refScale is much smaller
+  // than the rest-pose bbox used by baseSize. Calibrate to actual rendered size:
+  // at refScale the book face is ~1.5 world units tall, so dist≈5 fills ~33% of
+  // the viewport (fov=50). Scale by max(w,h)/DEFAULT_H for larger/smaller books.
+  const maxCm = Math.max(DEFAULT_W, DEFAULT_H);
+  const dist = 5 * (maxCm / DEFAULT_H);
   camera.lookAt(0, 0, 0);
   orbitControls.target.set(0, 0, 0);
   orbitControls.update();
