@@ -171,6 +171,18 @@
   </div>
 
   <label class="cp-checkbox" style="margin-bottom:10px;">
+  <!-- INNER COVER -->
+  <div class="cp-page" data-page="inner">
+    <div class="cp-row">
+      <label class="cp-label">Inner Cover Color</label>
+      <div class="cp-color-wrap"><input type="color" id="cpInnerColor" value="#8B1A1A"><span id="cpInnerColorHex">#8B1A1A</span></div>
+    </div>
+    <p style="font-size:0.72rem;color:#888;margin-top:8px;">Fills the inner liner visible when the book is open. Auto-syncs to front cover color by default.</p>
+    <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;color:#ccc;margin-top:10px;">
+      <input type="checkbox" id="cpInnerSync" checked> Sync to front cover color
+    </label>
+  </div>
+
     <input type="checkbox" id="cpShowZones"> Calibration mode (paint regions in legend colors)
   </label>
 
@@ -179,6 +191,7 @@
     <button class="cp-tab" data-tab="spine">Spine</button>
     <button class="cp-tab" data-tab="back">Back</button>
     <button class="cp-tab" data-tab="paper">Paper</button>
+    <button class="cp-tab" data-tab="inner">Inner</button>
   </div>
 
   <!-- FRONT -->
@@ -785,8 +798,8 @@ const REGIONS = {
   paperEdges:   { x0:    0, y0:  150, x1: 1990, y1:  500, color: '#BBBBBB', label: 'PAPER',     flipX: false, flipY: false },
   // Page content — right column (x=[1430,1990]), split equally from paper bottom
   // (y=500) to texture bottom (y=2048). Mirror + upside-down on the rendered face.
-  contentUpper: { x0: 1430, y0:  500, x1: 1990, y1: 1274, color: '#FF8800', label: 'CONTENT-U', flipX: true,  flipY: true },
-  contentLower: { x0: 1430, y0: 1274, x1: 1990, y1: 2048, color: '#9933FF', label: 'CONTENT-L', flipX: true,  flipY: true },
+  contentUpper: { x0: 1430, y0:  500, x1: 2048, y1: 1274, color: '#FF8800', label: 'CONTENT-U', flipX: true,  flipY: true },
+  contentLower: { x0: 1430, y0: 1274, x1: 2048, y1: 2048, color: '#9933FF', label: 'CONTENT-L', flipX: true,  flipY: true },
 };
 
 // ── State container (serializable design) ───────────────────────────────────
@@ -823,6 +836,10 @@ function readDesign() {
       grain: $check('cpPaperGrain'),
       content: $val('cpPaperContent'),
       fontSize: +$val('cpPaperFontSize'),
+    },
+    inner: {
+      color: $val('cpInnerColor'),
+      sync: $check('cpInnerSync'),
     },
   };
 }
@@ -1176,27 +1193,38 @@ function paintBookContent(d) {
 // flags can be verified by reading which letter ends up where on the rendered
 // book. Activated by the "Show region overlay" checkbox.
 function paintCalibrationOverlay() {
+  // Pass 1: fill colors + orientation corner markers (drawn through the flip
+  // transform so they reflect what the GPU actually renders on the 3D surface).
   for (const [key, r] of Object.entries(REGIONS)) {
     paintRegion(key, (ctx, _r) => {
       const w = r.x1 - r.x0, h = r.y1 - r.y0;
       ctx.fillStyle = r.color;
       ctx.fillRect(r.x0, r.y0, w, h);
-      ctx.fillStyle = 'rgba(0,0,0,0.85)';
-      // Label/corners positioned within the VISIBLE face area (visY0..y1) so
-      // TL/TR aren't pushed off into the inner-cover area that's hidden when
-      // the book is closed. Falls back to the full bbox if visY0 isn't set.
       const visY0 = r.visY0 != null ? r.visY0 : r.y0;
       const visH  = r.y1 - visY0;
-      ctx.font = `bold ${Math.min(w, visH) * 0.12}px sans-serif`;
+      ctx.fillStyle = 'rgba(0,0,0,0.85)';
+      ctx.font = `bold ${Math.min(w, visH) * 0.1}px sans-serif`;
       ctx.textBaseline = 'top';
-      ctx.textAlign = 'left';   ctx.fillText('TL', r.x0 + 12, visY0 + 8);
-      ctx.textAlign = 'right';  ctx.fillText('TR', r.x1 - 12, visY0 + 8);
+      ctx.textAlign = 'left';   ctx.fillText('TL', r.x0 + 10, visY0 + 6);
+      ctx.textAlign = 'right';  ctx.fillText('TR', r.x1 - 10, visY0 + 6);
       ctx.textBaseline = 'bottom';
-      ctx.textAlign = 'left';   ctx.fillText('BL', r.x0 + 12, r.y1 - 8);
-      ctx.textAlign = 'right';  ctx.fillText('BR', r.x1 - 12, r.y1 - 8);
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(r.label, r.x0 + w/2, visY0 + visH/2);
+      ctx.textAlign = 'left';   ctx.fillText('BL', r.x0 + 10, r.y1 - 6);
+      ctx.textAlign = 'right';  ctx.fillText('BR', r.x1 - 10, r.y1 - 6);
     });
+  }
+  // Pass 2: readable region names drawn directly on texCtx (no flip transform)
+  // so they are always legible in the UV layout preview.
+  for (const [key, r] of Object.entries(REGIONS)) {
+    const w = r.x1 - r.x0, h = r.y1 - r.y0;
+    const sz = Math.max(24, Math.min(w, h) * 0.1);
+    texCtx.font = `bold ${sz}px sans-serif`;
+    texCtx.textAlign = 'center';
+    texCtx.textBaseline = 'middle';
+    const cx = r.x0 + w / 2, cy = r.y0 + h / 2;
+    texCtx.fillStyle = 'rgba(0,0,0,0.75)';
+    texCtx.fillText(r.label, cx + 2, cy + 2);
+    texCtx.fillStyle = 'white';
+    texCtx.fillText(r.label, cx, cy);
   }
 }
 
@@ -1209,9 +1237,10 @@ function rebuildTexture() {
   if (document.getElementById('cpShowZones').checked) {
     paintCalibrationOverlay();
   } else {
-    // Inner cover (x=[0,1430], y=[500,1224]): fill with front cover dominant color
-    // so the inner liner doesn't show black when the book is opened.
-    texCtx.fillStyle = d.front.color;
+    // Inner cover liner (x=[0,1430], y=[500,1224]): fills the area visible
+    // when the book is open. Use inner color, or sync to front cover color.
+    const innerColor = (d.inner && !d.inner.sync) ? d.inner.color : d.front.color;
+    texCtx.fillStyle = innerColor;
     texCtx.fillRect(0, 500, 1430, 724);
     paintPaperEdges(d);
     paintBookContent(d);
@@ -1290,6 +1319,69 @@ document.getElementById('cpClose').addEventListener('click', () => {
 });
 
 // Tabs
+// ── Draggable UV region boundaries ──────────────────────────────────────────
+// Allows the user to drag boundary lines in the UV layout preview to
+// recalibrate region coordinates without editing code.
+(function () {
+  const preview = document.getElementById('cpPreview');
+  const SNAP = 8; // hit-test radius in display pixels
+
+  // Each draggable edge: axis, which coord getter, and which fields to update.
+  function edges() {
+    return [
+      { axis:'x', get:()=>REGIONS.front.x1,        set:(v)=>{ REGIONS.front.x1=v; REGIONS.spine.x0=v; } },
+      { axis:'x', get:()=>REGIONS.spine.x1,         set:(v)=>{ REGIONS.spine.x1=v; REGIONS.back.x0=v; } },
+      { axis:'x', get:()=>REGIONS.back.x1,          set:(v)=>{ REGIONS.back.x1=v; REGIONS.contentUpper.x0=v; REGIONS.contentLower.x0=v; } },
+      { axis:'y', get:()=>REGIONS.paperEdges.y1,    set:(v)=>{ REGIONS.paperEdges.y1=v; REGIONS.contentUpper.y0=v; } },
+      { axis:'y', get:()=>REGIONS.contentUpper.y1,  set:(v)=>{ REGIONS.contentUpper.y1=v; REGIONS.contentLower.y0=v; } },
+      { axis:'y', get:()=>REGIONS.front.y0,         set:(v)=>{ ['front','spine','back'].forEach(k=>{ REGIONS[k].y0=v; REGIONS[k].visY0=v; }); } },
+    ];
+  }
+
+  function scale() { return 2048 / preview.getBoundingClientRect().width; }
+  function toTex(px) { return Math.round(px * scale()); }
+  function toDisplay(tex, axis) {
+    const r = preview.getBoundingClientRect();
+    return tex / 2048 * (axis === 'x' ? r.width : r.height);
+  }
+
+  let dragging = null;
+
+  preview.addEventListener('mousemove', (e) => {
+    if (dragging) {
+      const rect = preview.getBoundingClientRect();
+      const pos = dragging.axis === 'x'
+        ? toTex(e.clientX - rect.left)
+        : toTex(e.clientY - rect.top);
+      dragging.set(Math.max(0, Math.min(2048, pos)));
+      rebuildTexture(); applyTextureToBook(true);
+      return;
+    }
+    const rect = preview.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    let hit = false;
+    for (const edge of edges()) {
+      const displayPos = toDisplay(edge.get(), edge.axis);
+      const dist = edge.axis === 'x' ? Math.abs(mx - displayPos) : Math.abs(my - displayPos);
+      if (dist < SNAP) { hit = true; preview.style.cursor = edge.axis === 'x' ? 'col-resize' : 'row-resize'; break; }
+    }
+    if (!hit) preview.style.cursor = 'default';
+  });
+
+  preview.addEventListener('mousedown', (e) => {
+    const rect = preview.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    for (const edge of edges()) {
+      const displayPos = toDisplay(edge.get(), edge.axis);
+      const dist = edge.axis === 'x' ? Math.abs(mx - displayPos) : Math.abs(my - displayPos);
+      if (dist < SNAP) { dragging = edge; e.preventDefault(); return; }
+    }
+  });
+
+  window.addEventListener('mouseup', () => { dragging = null; });
+  window.addEventListener('mouseleave', () => { dragging = null; });
+})();
+
 document.querySelectorAll('.cp-tab').forEach(tab => {
   tab.addEventListener('click', () => {
     const target = tab.dataset.tab;
@@ -1314,6 +1406,11 @@ LIVE_IDS.forEach(id => {
 
 // Show-zones debug toggle
 document.getElementById('cpShowZones').addEventListener('change', () => { rebuildTexture(); applyTextureToBook(true); });
+document.getElementById('cpInnerColor').addEventListener('input', (e) => {
+  document.getElementById('cpInnerColorHex').textContent = e.target.value;
+  rebuildTexture(); applyTextureToBook(true);
+});
+document.getElementById('cpInnerSync').addEventListener('change', () => { rebuildTexture(); applyTextureToBook(true); });
 
 // Front cover image upload
 document.getElementById('cpFrontImage').addEventListener('change', async (e) => {
