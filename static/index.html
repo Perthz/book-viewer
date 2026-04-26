@@ -793,16 +793,12 @@ const REGIONS = {
   // All three start at y0=1224 (top of the visible face; the liner area above
   // is hidden when the book is closed). Back width == front width (620px).
   front:        { x0:    0, y0: 1224, x1:  620, y1: 2048, color: '#5A8CFF', label: 'FRONT',     flipX: true,  flipY: false, visY0: 1224 },
-  spine:        { x0:  620, y0: 1224, x1:  800, y1: 2048, color: '#FFC81E', label: 'SPINE',     flipX: true,  flipY: false, visY0: 1224 },
-  back:         { x0:  800, y0: 1224, x1: 1420, y1: 2048, color: '#3CFA82', label: 'BACK',      flipX: true,  flipY: false, visY0: 1224 },
-  // Paper region — extends full designer width including over content-U.
-  paperEdges:   { x0:    0, y0:  150, x1: 1990, y1:  500, color: '#BBBBBB', label: 'PAPER',     flipX: false, flipY: false },
-  // Inner cover liner — visible when book is open, left of the page content.
-  innerCover:   { x0:    0, y0:  500, x1: 1430, y1: 1224, color: '#888888', label: 'INNER',     flipX: false, flipY: false },
-  // Page content — right column, split equally from paper bottom to texture bottom.
-  // GPU UV for these pages is x-mirrored only (no y-inversion) → flipX only.
-  contentUpper: { x0: 1430, y0:  500, x1: 2048, y1: 1274, color: '#FF8800', label: 'CONTENT-U', flipX: true,  flipY: false },
-  contentLower: { x0: 1430, y0: 1274, x1: 2048, y1: 2048, color: '#9933FF', label: 'CONTENT-L', flipX: true,  flipY: false },
+  spine:        { x0:  620, y0: 1224, x1:  781, y1: 2048, color: '#FFC81E', label: 'SPINE',     flipX: true,  flipY: false, visY0: 1224 },
+  back:         { x0:  781, y0: 1224, x1: 1403, y1: 2048, color: '#3CFA82', label: 'BACK',      flipX: true,  flipY: false, visY0: 1224 },
+  paperEdges:   { x0:    0, y0:  150, x1: 1990, y1:  404, color: '#BBBBBB', label: 'PAPER',     flipX: false, flipY: false },
+  innerCover:   { x0:    0, y0:  404, x1: 1403, y1: 1224, color: '#888888', label: 'INNER',     flipX: false, flipY: false },
+  contentUpper: { x0: 1403, y0:  541, x1: 2048, y1: 1291, color: '#FF8800', label: 'CONTENT-U', flipX: true,  flipY: false },
+  contentLower: { x0: 1403, y0: 1291, x1: 2048, y1: 2048, color: '#9933FF', label: 'CONTENT-L', flipX: true,  flipY: false },
 };
 
 // ── State container (serializable design) ───────────────────────────────────
