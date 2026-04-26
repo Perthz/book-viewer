@@ -1371,7 +1371,8 @@ document.getElementById('cpCopyCalib').addEventListener('click', () => {
       { axis:'x', get:()=>REGIONS.back.x1,          set:(v)=>{ REGIONS.back.x1=v; REGIONS.innerCover.x1=v; REGIONS.contentUpper.x0=v; REGIONS.contentLower.x0=v; } },
       { axis:'y', get:()=>REGIONS.paperEdges.y0,    set:(v)=>{ REGIONS.paperEdges.y0=v; } },
       { axis:'y', get:()=>REGIONS.paperEdges.y1,    set:(v)=>{ REGIONS.paperEdges.y1=v; } },
-      { axis:'y', get:()=>REGIONS.innerCover.y0,    set:(v)=>{ REGIONS.innerCover.y0=v; REGIONS.contentUpper.y0=v; REGIONS.contentLower.y0=v; } },
+      { axis:'y', get:()=>REGIONS.innerCover.y0,    set:(v)=>{ REGIONS.innerCover.y0=v; } },
+      { axis:'y', get:()=>REGIONS.contentUpper.y0,  set:(v)=>{ REGIONS.contentUpper.y0=v; } },
       { axis:'y', get:()=>REGIONS.contentUpper.y1,  set:(v)=>{ REGIONS.contentUpper.y1=v; REGIONS.contentLower.y0=v; } },
       { axis:'y', get:()=>REGIONS.front.y0,         set:(v)=>{ ['front','spine','back'].forEach(k=>{ REGIONS[k].y0=v; REGIONS[k].visY0=v; }); REGIONS.innerCover.y1=v; } },
     ];
