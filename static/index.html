@@ -786,6 +786,8 @@ const TEX_W = 2048, TEX_H = 2048;
 
 // State
 let texCanvas = null, texCtx = null;       // main 2048² compositor
+const paperRimImg = new Image();
+paperRimImg.src = './textures/paper_rim.png';
 let bookMesh = null, pagesMesh = null, pagesMeshes = [];
 let bookMaterial = null, pagesMaterial = null;
 let coverDesignerReady = false;
@@ -1131,17 +1133,27 @@ function paintBack(d) {
 function paintPaperEdges(d) {
   paintRegion('paperEdges', (ctx, r) => {
     const w = r.x1 - r.x0, h = r.y1 - r.y0;
-    ctx.fillStyle = d.paper.color;
-    ctx.fillRect(r.x0, r.y0, w, h);
-    if (d.paper.grain) {
-      // faint horizontal page-edge striations
-      ctx.globalAlpha = 0.18;
-      ctx.strokeStyle = '#000';
-      ctx.lineWidth = 1;
-      for (let y = r.y0 + 2; y < r.y1 - 2; y += 3) {
-        ctx.beginPath(); ctx.moveTo(r.x0, y); ctx.lineTo(r.x1, y); ctx.stroke();
+    if (paperRimImg.complete && paperRimImg.naturalWidth > 0) {
+      // Scale texture to fill region height; it's wide enough to span in one draw
+      ctx.drawImage(paperRimImg, r.x0, r.y0, w, h);
+      // Tint with paper rim color (multiply-style: semi-transparent overlay)
+      ctx.globalCompositeOperation = 'multiply';
+      ctx.fillStyle = d.paper.color;
+      ctx.fillRect(r.x0, r.y0, w, h);
+      ctx.globalCompositeOperation = 'source-over';
+    } else {
+      // Fallback: solid color + procedural grain
+      ctx.fillStyle = d.paper.color;
+      ctx.fillRect(r.x0, r.y0, w, h);
+      if (d.paper.grain) {
+        ctx.globalAlpha = 0.18;
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 1;
+        for (let y = r.y0 + 2; y < r.y1 - 2; y += 3) {
+          ctx.beginPath(); ctx.moveTo(r.x0, y); ctx.lineTo(r.x1, y); ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
       }
-      ctx.globalAlpha = 1;
     }
   });
 }
