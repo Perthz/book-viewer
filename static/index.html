@@ -131,7 +131,7 @@
   </div>
   <div class="dim-row">
     <div class="dim-label"><span>Cover Board</span><span><span id="ctVal">1.0</span><span class="dim-unit">×</span></span></div>
-    <input type="range" id="ctSlider" min="0.3" max="3" step="0.05" value="1">
+    <input type="range" id="ctSlider" min="0.5" max="2" step="0.05" value="1">
   </div>
   <hr class="divider">
   <button id="openBtn">Open Book</button>
@@ -469,9 +469,12 @@ function applySize(wCm, hCm, tCm, coverScale) {
   const sy = refScale * (tCm / DEFAULT_T);   // thickness → model Y axis (depth after rotation)
   const sz = refScale * (hCm / DEFAULT_H);   // height → model Z axis (up after rotation)
   bookGroup.scale.set(sx, sy, sz);
-  // Cover board scale: applied locally to the cover mesh so it thickens/thins
-  // independently from the page block. Pages stay at sy; cover gets sy * ct.
-  if (bookMesh) bookMesh.scale.y = ct;
+  // Cover board: the SkinnedMesh can't be locally scaled cleanly (bone
+  // deformation fights it). Instead shrink the plain page-block meshes by 1/ct
+  // so the cover stays at full depth while the page stack becomes relatively
+  // thinner — exactly what a thicker board looks like.
+  if (bookMesh) bookMesh.scale.y = 1;
+  pagesMeshes.forEach(m => { m.scale.y = 1 / ct; });
 }
 
 function sitOnGround() {
@@ -564,6 +567,7 @@ loader.load('./scene.gltf', (gltf) => {
     }
   }
   pagesMesh = allPagesMeshes[0] || null;
+  pagesMeshes = allPagesMeshes;
   // (debug) expose for browser-console inspection during development
   window.__bookMesh = bookMesh; window.__bookMat = bookMaterial;
   window.__camera = camera; window.__orbit = orbitControls; window.__bookGroup = bookGroup;
@@ -782,7 +786,7 @@ const TEX_W = 2048, TEX_H = 2048;
 
 // State
 let texCanvas = null, texCtx = null;       // main 2048² compositor
-let bookMesh = null, pagesMesh = null;
+let bookMesh = null, pagesMesh = null, pagesMeshes = [];
 let bookMaterial = null, pagesMaterial = null;
 let coverDesignerReady = false;
 let frontImageBitmap = null;               // user-uploaded cover image (runtime)
