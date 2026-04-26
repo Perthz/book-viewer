@@ -126,8 +126,12 @@
     <input type="range" id="hSlider" min="5" max="40" step="0.5" value="21">
   </div>
   <div class="dim-row">
-    <div class="dim-label"><span>Thickness</span><span><span id="tVal">2.0</span><span class="dim-unit">cm</span></span></div>
+    <div class="dim-label"><span>Book Thickness</span><span><span id="tVal">2.0</span><span class="dim-unit">cm</span></span></div>
     <input type="range" id="tSlider" min="0.3" max="6" step="0.1" value="2">
+  </div>
+  <div class="dim-row">
+    <div class="dim-label"><span>Cover Board</span><span><span id="ctVal">1.0</span><span class="dim-unit">×</span></span></div>
+    <input type="range" id="ctSlider" min="0.3" max="3" step="0.05" value="1">
   </div>
   <hr class="divider">
   <button id="openBtn">Open Book</button>
@@ -280,8 +284,12 @@
   <!-- PAPER -->
   <div class="cp-page" data-page="paper">
     <div class="cp-row">
-      <label class="cp-label">Page Color</label>
+      <label class="cp-label">Paper Rim Color</label>
       <div class="cp-color-wrap"><input type="color" id="cpPaperColor" value="#F5F0E8"><span id="cpPaperColorHex">#F5F0E8</span></div>
+    </div>
+    <div class="cp-row">
+      <label class="cp-label">Page Background Color</label>
+      <div class="cp-color-wrap"><input type="color" id="cpPageBgColor" value="#FAF7F0"><span id="cpPageBgColorHex">#FAF7F0</span></div>
     </div>
     <label class="cp-checkbox"><input type="checkbox" id="cpPaperGrain" checked> Paper grain (subtle fiber texture)</label>
     <div class="cp-row" style="margin-top:10px;">
@@ -344,11 +352,13 @@ const sliders = {
   w: document.getElementById('wSlider'),
   h: document.getElementById('hSlider'),
   t: document.getElementById('tSlider'),
+  ct: document.getElementById('ctSlider'),
 };
 const vals = {
   w: document.getElementById('wVal'),
   h: document.getElementById('hVal'),
   t: document.getElementById('tVal'),
+  ct: document.getElementById('ctVal'),
 };
 const openSlider = document.getElementById('openSlider');
 const openVal = document.getElementById('openVal');
@@ -440,7 +450,7 @@ fill.position.set(...THEME.fillLight.pos); scene.add(fill);
 const rim = new THREE.DirectionalLight(THEME.rimLight.color, THEME.rimLight.intensity);
 rim.position.set(...THEME.rimLight.pos); scene.add(rim);
 
-const DEFAULT_W = 14, DEFAULT_H = 21, DEFAULT_T = 2;
+const DEFAULT_W = 14, DEFAULT_H = 21, DEFAULT_T = 2, DEFAULT_CT = 1;
 
 let baseSize = { x: 1, y: 1, z: 1 };
 let bookGroup = null;
@@ -451,20 +461,17 @@ let openAmount = 0;
 let isOpen = false;
 let animating = false;
 
-function applySize(wCm, hCm, tCm) {
+function applySize(wCm, hCm, tCm, coverScale) {
   if (!bookGroup) return;
-  // refScale is the uniform scale that makes the model look like a standard book
-  // at the default dimensions (same reference the old uniform-scale code used).
-  // Per-axis: multiply refScale by the ratio of the requested cm to the default cm.
-  // At defaults (DEFAULT_W/H/T) all three axes equal refScale → same as old uniform
-  // scale, so the book looks identical to the previously working state.
-  // Each slider then changes only its own axis proportionally from that baseline:
-  // doubling W doubles the visual width, doubling H doubles the visual height, etc.
+  const ct = (coverScale != null) ? coverScale : DEFAULT_CT;
   const refScale = DEFAULT_H / baseSize.y;
   const sx = refScale * (wCm / DEFAULT_W);   // width  → model X axis
   const sy = refScale * (tCm / DEFAULT_T);   // thickness → model Y axis (depth after rotation)
   const sz = refScale * (hCm / DEFAULT_H);   // height → model Z axis (up after rotation)
   bookGroup.scale.set(sx, sy, sz);
+  // Cover board scale: applied locally to the cover mesh so it thickens/thins
+  // independently from the page block. Pages stay at sy; cover gets sy * ct.
+  if (bookMesh) bookMesh.scale.y = ct;
 }
 
 function sitOnGround() {
@@ -625,20 +632,24 @@ function onSlider() {
   const w = parseFloat(sliders.w.value);
   const h = parseFloat(sliders.h.value);
   const t = parseFloat(sliders.t.value);
+  const ct = parseFloat(sliders.ct.value);
   vals.w.textContent = w.toFixed(1);
   vals.h.textContent = h.toFixed(1);
   vals.t.textContent = t.toFixed(1);
-  applySize(w, h, t);
+  vals.ct.textContent = ct.toFixed(2);
+  applySize(w, h, t, ct);
 }
 
 sliders.w.addEventListener('input', onSlider);
 sliders.h.addEventListener('input', onSlider);
 sliders.t.addEventListener('input', onSlider);
+sliders.ct.addEventListener('input', onSlider);
 
 document.getElementById('resetBtn').addEventListener('click', () => {
   sliders.w.value = DEFAULT_W;
   sliders.h.value = DEFAULT_H;
   sliders.t.value = DEFAULT_T;
+  sliders.ct.value = DEFAULT_CT;
   onSlider();
   setOpenAmount(0);
   rotXSlider.value = 0; rotYSlider.value = 0; rotZSlider.value = 0;
@@ -832,6 +843,7 @@ function readDesign() {
     },
     paper: {
       color: $val('cpPaperColor'),
+      pageBgColor: $val('cpPageBgColor'),
       grain: $check('cpPaperGrain'),
       content: $val('cpPaperContent'),
       fontSize: +$val('cpPaperFontSize'),
@@ -877,6 +889,7 @@ function writeDesign(d) {
   }
   if (d.paper) {
     $set('cpPaperColor', d.paper.color);
+    $set('cpPageBgColor', d.paper.pageBgColor);
     $checkSet('cpPaperGrain', d.paper.grain);
     $set('cpPaperContent', d.paper.content);
     $set('cpPaperFontSize', d.paper.fontSize);
@@ -890,7 +903,7 @@ const $check = (id) => document.getElementById(id).checked;
 const $checkSet = (id, v) => { document.getElementById(id).checked = !!v; };
 
 function syncHexLabels() {
-  ['cpFrontColor','cpFrontTextColor','cpSpineColor','cpSpineTextColor','cpBackColor','cpBackTextColor','cpPaperColor'].forEach(id => {
+  ['cpFrontColor','cpFrontTextColor','cpSpineColor','cpSpineTextColor','cpBackColor','cpBackTextColor','cpPaperColor','cpPageBgColor'].forEach(id => {
     const el = document.getElementById(id + 'Hex');
     if (el) el.textContent = $val(id);
   });
@@ -1132,12 +1145,13 @@ function paintPaperEdges(d) {
 function paintBookContent(d) {
   // Inside-page text gets split across the upper and lower content rects
   // (left page / right page of an open spread).
+  const pageBg = d.paper.pageBgColor || d.paper.color;
   const fullText = (d.paper.content || '').trim();
   if (!fullText) {
-    // still fill paper color so the page surface isn't black
+    // still fill page background so the page surface isn't black
     for (const k of ['contentUpper', 'contentLower']) {
       paintRegion(k, (ctx, r) => {
-        ctx.fillStyle = d.paper.color;
+        ctx.fillStyle = pageBg;
         ctx.fillRect(r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0);
       });
     }
@@ -1156,7 +1170,7 @@ function paintBookContent(d) {
   const drawHalf = (key, lines) => {
     paintRegion(key, (ctx, r) => {
       const w = r.x1 - r.x0, h = r.y1 - r.y0;
-      ctx.fillStyle = d.paper.color;
+      ctx.fillStyle = pageBg;
       ctx.fillRect(r.x0, r.y0, w, h);
       if (d.paper.grain) {
         // very subtle grain — printed paper isn't pure white
@@ -1432,7 +1446,7 @@ const LIVE_IDS = [
   'cpFrontFontSize','cpFrontFont','cpFrontFrame',
   'cpSpineColor','cpSpineTextColor','cpSpineTitle','cpSpineAuthor','cpSpineFontSize','cpSpineBands',
   'cpBackColor','cpBackTextColor','cpBackBlurb','cpBackFontSize','cpBackBarcode',
-  'cpPaperColor','cpPaperGrain','cpPaperContent','cpPaperFontSize',
+  'cpPaperColor','cpPageBgColor','cpPaperGrain','cpPaperContent','cpPaperFontSize',
 ];
 LIVE_IDS.forEach(id => {
   const el = document.getElementById(id);
