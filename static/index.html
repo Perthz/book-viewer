@@ -439,13 +439,18 @@ let animating = false;
 
 function applySize(wCm, hCm, tCm) {
   if (!bookGroup) return;
-  // The model has nested scales (armature ×100 inside model ×0.17). Non-uniform
-  // scaling shears the hierarchy — use uniform scaling driven by the height
-  // slider, which is the most "real" book dimension. Width/thickness are
-  // displayed but don't independently rescale (the model's authored aspect
-  // ratio is preserved).
-  const s = hCm / baseSize.y;
-  bookGroup.scale.set(s, s, s);
+  // Per-axis scaling so each slider controls its own dimension in cm.
+  // baseSize is the model's bounding box at scale 1 (in model units). We treat
+  // 1 model unit ≈ 1 cm at the default-h calibration: dividing the slider cm
+  // value by baseSize.<axis> gives a scale factor that makes the rendered
+  // dimension match the slider label.
+  // Caveat: non-uniform scale on a SkinnedMesh shears the geometry slightly
+  // when the open/close animation runs (bone interpolation under non-uniform
+  // parent scale). It's clean when the book is closed.
+  const sx = wCm / baseSize.x;
+  const sy = tCm / baseSize.y;   // thickness → Y axis
+  const sz = hCm / baseSize.z;   // height → Z axis (becomes vertical after -90° X rotation)
+  bookGroup.scale.set(sx, sy, sz);
 }
 
 function sitOnGround() {
