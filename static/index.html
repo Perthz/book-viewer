@@ -87,7 +87,6 @@
     .cp-row-inline .cp-row { flex: 1; }
     .cp-color-wrap { display: flex; align-items: center; gap: 8px; }
     .cp-color-wrap input[type="color"] { width: 36px; height: 32px; border: none; background: none; cursor: pointer; border-radius: 4px; padding: 0; }
-    .cp-color-wrap span { color: #888; font-size: 0.7rem; font-family: monospace; }
     .cp-color-hex { width: 76px; padding: 4px 6px; border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; background: #1a1a22; color: #ccc; font-size: 0.7rem; font-family: monospace; text-transform: uppercase; }
     .cp-color-hex:focus { outline: none; border-color: rgba(108,143,255,0.5); }
     .cp-color-hex.invalid { border-color: rgba(255,80,80,0.6); }
@@ -1340,11 +1339,11 @@ document.getElementById('cpCopyCalib').addEventListener('click', () => {
     if (r.visY0 != null) out[k].visY0 = r.visY0;
   }
   const text = JSON.stringify(out, null, 2);
-  navigator.clipboard.writeText(text).then(() => {
-    const btn = document.getElementById('cpCopyCalib');
-    btn.textContent = 'Copied!';
-    setTimeout(() => { btn.textContent = 'Copy calibration'; }, 2000);
-  });
+  const btn = document.getElementById('cpCopyCalib');
+  navigator.clipboard.writeText(text).then(
+    () => { btn.textContent = 'Copied!'; setTimeout(() => { btn.textContent = 'Copy calibration'; }, 2000); },
+    () => { btn.textContent = 'Copy failed'; setTimeout(() => { btn.textContent = 'Copy calibration'; }, 2000); },
+  );
 });
 
 // Tabs
@@ -1452,9 +1451,12 @@ const LIVE_IDS = [
   'cpPaperColor','cpPageBgColor','cpPaperGrain','cpPaperContent','cpPaperFontSize',
 ];
 LIVE_IDS.forEach(id => {
-  const el = document.getElementById(id);
-  el.addEventListener('input', () => { syncHexLabels(); syncRangeLabels(); rebuildTexture(); });
-  el.addEventListener('change', () => { syncHexLabels(); syncRangeLabels(); rebuildTexture(); });
+  // 'input' covers every interactive change (typing, slider drag, picker drag,
+  // checkbox toggle, select change) on modern browsers — no need to also bind
+  // 'change' or we'd rebuildTexture twice on blur/release.
+  document.getElementById(id).addEventListener('input', () => {
+    syncHexLabels(); syncRangeLabels(); rebuildTexture();
+  });
 });
 
 // Show-zones debug toggle (the row itself is hidden by default; press Shift+D
