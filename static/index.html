@@ -266,7 +266,7 @@
       <label class="cp-label">Text Size</label>
       <div class="cp-range-row"><input type="range" id="cpSpineFontSize" min="20" max="80" step="1" value="42"><span id="cpSpineFontSizeVal">42</span></div>
     </div>
-    <label class="cp-checkbox"><input type="checkbox" id="cpSpineBands" checked> Accent bands (top/bottom)</label>
+    <label class="cp-checkbox"><input type="checkbox" id="cpSpineBands"> Accent bands (top/bottom)</label>
   </div>
 
   <!-- BACK -->
@@ -1695,7 +1695,13 @@ async function parseEpub(file) {
     const path = (opfDir + rel).replace(/\/\.\//g, '/'); // collapse './'
     return zip.file(path) || findEntry(path) || findEntry(rel);
   };
-  // 3. Find cover image (three fallback strategies, in EPUB-3 → -2 order)
+  // 3. Title + author from Dublin Core metadata
+  const DC_NS = 'http://purl.org/dc/elements/1.1/';
+  const title = opf.getElementsByTagNameNS(DC_NS, 'title')[0]?.textContent?.trim() || '';
+  const creators = [...opf.getElementsByTagNameNS(DC_NS, 'creator')]
+    .map(e => e.textContent.trim()).filter(Boolean);
+  const author = creators.join(', ');
+  // 4. Find cover image (three fallback strategies, in EPUB-3 → -2 order)
   let coverHref = opf.querySelector('manifest item[properties~="cover-image"]')?.getAttribute('href');
   if (!coverHref) {
     const id = opf.querySelector('metadata meta[name="cover"]')?.getAttribute('content');
@@ -1736,7 +1742,7 @@ async function parseEpub(file) {
     }
   }
   // Trim to a generous length — paintBookContent will wrap and clip per region
-  return { coverBitmap, bodyText: bodyText.slice(0, 2000) };
+  return { coverBitmap, bodyText: bodyText.slice(0, 2000), title, author };
 }
 
 document.getElementById('cpLoadEpub').addEventListener('click', () => {
@@ -1750,7 +1756,7 @@ document.getElementById('cpEpubInput').addEventListener('change', async (e) => {
   status.textContent = 'Reading EPUB…';
   status.style.display = '';
   try {
-    const { coverBitmap, bodyText } = await parseEpub(file);
+    const { coverBitmap, bodyText, title, author } = await parseEpub(file);
     const updated = [];
     if (coverBitmap) {
       frontImageBitmap = coverBitmap;
@@ -1765,6 +1771,21 @@ document.getElementById('cpEpubInput').addEventListener('change', async (e) => {
       applyPaletteToDesign(extractPalette(frontImageBitmap));
       updated.push('cover');
     }
+    if (title) {
+      $set('cpFrontTitle', title);
+      $set('cpSpineTitle', title.toUpperCase());
+      updated.push('title');
+    }
+    if (author) {
+      $set('cpFrontAuthor', author);
+      // Spine convention: just the (last) surname of the first author, uppercased
+      const firstAuthor = author.split(',')[0].trim();
+      const lastName = firstAuthor.split(/\s+/).pop() || firstAuthor;
+      $set('cpSpineAuthor', lastName.toUpperCase());
+      updated.push('author');
+    }
+    // Imported books look cleaner without the decorative bands
+    $checkSet('cpSpineBands', false);
     if (bodyText) {
       $set('cpPaperContent', bodyText);
       updated.push('inside content');
