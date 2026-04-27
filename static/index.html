@@ -1663,18 +1663,38 @@ document.getElementById('cpFrontImage').addEventListener('change', async (e) => 
 async function parseEpub(file) {
   if (typeof JSZip === 'undefined') throw new Error('JSZip not loaded');
   const zip = await JSZip.loadAsync(file);
+  // Case-insensitive lookup — some EPUBs have lowercase META-INF, leading
+  // slashes, or other path quirks that exact-match misses. Fall back to
+  // searching all entries.
+  const findEntry = (suffix) => {
+    const lower = suffix.toLowerCase();
+    for (const path in zip.files) {
+      if (path.toLowerCase().endsWith(lower) && !zip.files[path].dir) return zip.files[path];
+    }
+    return null;
+  };
   // 1. Locate the OPF via container.xml
-  const containerEntry = zip.file('META-INF/container.xml');
-  if (!containerEntry) throw new Error('Not an EPUB (no META-INF/container.xml)');
+  const containerEntry = findEntry('META-INF/container.xml') || findEntry('container.xml');
+  if (!containerEntry) {
+    const sample = Object.keys(zip.files).slice(0, 8).join(', ') || '(empty)';
+    throw new Error(`No container.xml found. ZIP contains: ${sample}…`);
+  }
   const containerXml = await containerEntry.async('text');
   const containerDoc = new DOMParser().parseFromString(containerXml, 'application/xml');
-  const opfPath = containerDoc.querySelector('rootfile')?.getAttribute('full-path');
+  let opfPath = containerDoc.querySelector('rootfile')?.getAttribute('full-path');
   if (!opfPath) throw new Error('OPF path not found in container.xml');
+  opfPath = opfPath.replace(/^\/+/, ''); // strip leading slash if any
   // 2. Read OPF manifest + spine
-  const opfXml = await zip.file(opfPath).async('text');
+  const opfEntry = zip.file(opfPath) || findEntry(opfPath);
+  if (!opfEntry) throw new Error(`OPF not found at "${opfPath}"`);
+  const opfXml = await opfEntry.async('text');
   const opf = new DOMParser().parseFromString(opfXml, 'application/xml');
   const opfDir = opfPath.includes('/') ? opfPath.replace(/[^/]*$/, '') : '';
-  const resolve = (rel) => opfDir + rel;
+  // Resolve a manifest href relative to the OPF, with case-insensitive fallback
+  const resolveEntry = (rel) => {
+    const path = (opfDir + rel).replace(/\/\.\//g, '/'); // collapse './'
+    return zip.file(path) || findEntry(path) || findEntry(rel);
+  };
   // 3. Find cover image (three fallback strategies, in EPUB-3 → -2 order)
   let coverHref = opf.querySelector('manifest item[properties~="cover-image"]')?.getAttribute('href');
   if (!coverHref) {
@@ -1686,7 +1706,7 @@ async function parseEpub(file) {
   }
   let coverBitmap = null;
   if (coverHref) {
-    const f = zip.file(resolve(coverHref));
+    const f = resolveEntry(coverHref);
     if (f) {
       try { coverBitmap = await createImageBitmap(await f.async('blob')); } catch {}
     }
@@ -1707,7 +1727,7 @@ async function parseEpub(file) {
       if (idx < 0 || idx >= spineIds.length) continue;
       const href = manifestById[spineIds[idx]];
       if (!href) continue;
-      const f = zip.file(resolve(href));
+      const f = resolveEntry(href);
       if (!f) continue;
       const html = await f.async('text');
       const doc = new DOMParser().parseFromString(html, 'text/html');
