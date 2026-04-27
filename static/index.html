@@ -136,6 +136,10 @@
     <div class="dim-label"><span>Book Thickness</span><span><span id="tVal">2.0</span><span class="dim-unit">cm</span></span></div>
     <input type="range" id="tSlider" min="0.3" max="6" step="0.1" value="2">
   </div>
+  <div class="dim-row">
+    <div class="dim-label"><span>Page Block</span><span><span id="pbVal">0.90</span><span class="dim-unit">×</span></span></div>
+    <input type="range" id="pbSlider" min="0.5" max="1" step="0.05" value="0.9">
+  </div>
   <hr class="divider">
   <div class="section-label">Animation</div>
   <button id="openBtn">Open Book</button>
@@ -366,11 +370,13 @@ const sliders = {
   w: document.getElementById('wSlider'),
   h: document.getElementById('hSlider'),
   t: document.getElementById('tSlider'),
+  pb: document.getElementById('pbSlider'),
 };
 const vals = {
   w: document.getElementById('wVal'),
   h: document.getElementById('hVal'),
   t: document.getElementById('tVal'),
+  pb: document.getElementById('pbVal'),
 };
 const openSlider = document.getElementById('openSlider');
 const openVal = document.getElementById('openVal');
@@ -465,7 +471,7 @@ fill.position.set(...THEME.fillLight.pos); scene.add(fill);
 const rim = new THREE.DirectionalLight(THEME.rimLight.color, THEME.rimLight.intensity);
 rim.position.set(...THEME.rimLight.pos); scene.add(rim);
 
-const DEFAULT_W = 14, DEFAULT_H = 21, DEFAULT_T = 2;
+const DEFAULT_W = 14, DEFAULT_H = 21, DEFAULT_T = 2, DEFAULT_PB = 0.9;
 
 let baseSize = { x: 1, y: 1, z: 1 };
 let bookGroup = null;
@@ -476,13 +482,19 @@ let openAmount = 0;
 let isOpen = false;
 let animating = false;
 
-function applySize(wCm, hCm, tCm) {
+function applySize(wCm, hCm, tCm, pageBlock) {
   if (!bookGroup) return;
+  const pb = (pageBlock != null) ? pageBlock : DEFAULT_PB;
   const refScale = DEFAULT_H / baseSize.y;
   const sx = refScale * (wCm / DEFAULT_W);
   const sy = refScale * (tCm / DEFAULT_T);
   const sz = refScale * (hCm / DEFAULT_H);
   bookGroup.scale.set(sx, sy, sz);
+  // Page Block: shrinks the page meshes in Y so they nest inside the cover
+  // instead of meeting it edge-to-edge. The cover and page meshes don't
+  // share an exact edge in the closed pose, and at scale 1.0 the seam is
+  // visible as a brown gap line; ~0.9 hides it cleanly.
+  pagesMeshes.forEach(m => { m.scale.y = pb; });
 }
 
 function sitOnGround() {
@@ -600,7 +612,7 @@ loader.load('./scene.gltf', (gltf) => {
     animAction.time = 0;
   }
 
-  applySize(DEFAULT_W, DEFAULT_H, DEFAULT_T);
+  applySize(DEFAULT_W, DEFAULT_H, DEFAULT_T, DEFAULT_PB);
   applyRotation();
   // Leave bookGroup.position at origin — the skinned closed-book pose centroid
   // sits near origin already; Box3 on a SkinnedMesh returns the rest-pose bbox
@@ -620,20 +632,24 @@ function onSlider() {
   const w = parseFloat(sliders.w.value);
   const h = parseFloat(sliders.h.value);
   const t = parseFloat(sliders.t.value);
+  const pb = parseFloat(sliders.pb.value);
   vals.w.textContent = w.toFixed(1);
   vals.h.textContent = h.toFixed(1);
   vals.t.textContent = t.toFixed(1);
-  applySize(w, h, t);
+  vals.pb.textContent = pb.toFixed(2);
+  applySize(w, h, t, pb);
 }
 
 sliders.w.addEventListener('input', onSlider);
 sliders.h.addEventListener('input', onSlider);
 sliders.t.addEventListener('input', onSlider);
+sliders.pb.addEventListener('input', onSlider);
 
 document.getElementById('resetBtn').addEventListener('click', () => {
   sliders.w.value = DEFAULT_W;
   sliders.h.value = DEFAULT_H;
   sliders.t.value = DEFAULT_T;
+  sliders.pb.value = DEFAULT_PB;
   onSlider();
   setOpenAmount(0);
   rotXSlider.value = 0; rotYSlider.value = 0; rotZSlider.value = 0;
