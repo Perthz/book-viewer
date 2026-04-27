@@ -267,6 +267,13 @@
       <div class="cp-range-row"><input type="range" id="cpSpineFontSize" min="20" max="80" step="1" value="42"><span id="cpSpineFontSizeVal">42</span></div>
     </div>
     <label class="cp-checkbox"><input type="checkbox" id="cpSpineBands"> Accent bands (top/bottom)</label>
+    <div class="cp-row" style="margin-top:8px;">
+      <label class="cp-label">Spine Image (optional, behind text)</label>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <input type="file" class="cp-input" id="cpSpineImage" accept="image/*" style="flex:1;">
+        <button type="button" class="cp-secondary" id="cpSpineImageClear" style="padding:4px 10px;font-size:0.7rem;display:none;">Clear</button>
+      </div>
+    </div>
   </div>
 
   <!-- BACK -->
@@ -300,6 +307,13 @@
       </div>
     </div>
     <label class="cp-checkbox"><input type="checkbox" id="cpBackBarcode"> Show barcode placeholder</label>
+    <div class="cp-row" style="margin-top:8px;">
+      <label class="cp-label">Back Image (optional, behind text)</label>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <input type="file" class="cp-input" id="cpBackImage" accept="image/*" style="flex:1;">
+        <button type="button" class="cp-secondary" id="cpBackImageClear" style="padding:4px 10px;font-size:0.7rem;display:none;">Clear</button>
+      </div>
+    </div>
   </div>
 
   <!-- PAPER -->
@@ -832,6 +846,8 @@ let bookMaterial = null;
 let coverDesignerReady = false;
 let frontImageBitmap = null;               // user-uploaded cover image (runtime)
 let frontImageData = null;                 // base64 data URL (persisted in design)
+let spineImageBitmap = null, spineImageData = null;
+let backImageBitmap = null, backImageData = null;
 let uvAtlasOverride = null;                // full-atlas image, when set rebuildTexture() blits it raw
 
 // ── REGIONS table (hand-verified pixel rectangles on the 2048² texture) ─────
@@ -879,6 +895,7 @@ function readDesign() {
       author: $val('cpSpineAuthor'),
       fontSize: +$val('cpSpineFontSize'),
       bands: $check('cpSpineBands'),
+      imageData: spineImageData,
     },
     back: {
       color: $val('cpBackColor'),
@@ -888,6 +905,7 @@ function readDesign() {
       barcode: $check('cpBackBarcode'),
       genre: $val('cpBackGenre'),
       publisher: $val('cpBackPublisher'),
+      imageData: backImageData,
     },
     paper: {
       color: $val('cpPaperColor'),
@@ -929,11 +947,31 @@ function writeDesign(d) {
     $set('cpSpineTitle', d.spine.title); $set('cpSpineAuthor', d.spine.author);
     $set('cpSpineFontSize', d.spine.fontSize);
     $checkSet('cpSpineBands', d.spine.bands);
+    if (d.spine.imageData) {
+      const img = new Image();
+      img.onload = async () => {
+        spineImageData = d.spine.imageData;
+        spineImageBitmap = await createImageBitmap(img);
+        document.getElementById('cpSpineImageClear').style.display = '';
+        rebuildTexture();
+      };
+      img.src = d.spine.imageData;
+    } else { spineImageData = null; spineImageBitmap = null; document.getElementById('cpSpineImageClear').style.display = 'none'; }
   }
   if (d.back) {
     $set('cpBackColor', d.back.color); $set('cpBackTextColor', d.back.textColor);
     $set('cpBackBlurb', d.back.blurb); $set('cpBackFontSize', d.back.fontSize);
     $checkSet('cpBackBarcode', d.back.barcode);
+    if (d.back.imageData) {
+      const img = new Image();
+      img.onload = async () => {
+        backImageData = d.back.imageData;
+        backImageBitmap = await createImageBitmap(img);
+        document.getElementById('cpBackImageClear').style.display = '';
+        rebuildTexture();
+      };
+      img.src = d.back.imageData;
+    } else { backImageData = null; backImageBitmap = null; document.getElementById('cpBackImageClear').style.display = 'none'; }
     $set('cpBackGenre', d.back.genre); $set('cpBackPublisher', d.back.publisher);
   }
   if (d.paper) {
@@ -1105,6 +1143,11 @@ function paintSpine(d) {
     const visY0 = r.visY0 != null ? r.visY0 : r.y0;
     const visH  = r.y1 - visY0;
 
+    // Backdrop image: stretched to the visible face. Text overlays on top.
+    if (spineImageBitmap) {
+      ctx.drawImage(spineImageBitmap, r.x0, visY0, w, visH);
+    }
+
     if (d.spine.bands) {
       ctx.fillStyle = d.spine.textColor;
       const bandH = visH * 0.018;
@@ -1142,6 +1185,11 @@ function paintBack(d) {
     // blurb / barcode never land in the inner-cover region above visY0.
     const visY0 = r.visY0 != null ? r.visY0 : r.y0;
     const visH  = r.y1 - visY0;
+
+    // Backdrop image: stretched to the visible face. Text overlays on top.
+    if (backImageBitmap) {
+      ctx.drawImage(backImageBitmap, r.x0, visY0, w, visH);
+    }
     const safeX = w * 0.10, safeY = visH * 0.12;
     const sx0 = r.x0 + safeX, sy0 = visY0 + safeY;
     const sw  = w - safeX * 2, sh = visH - safeY * 2;
@@ -1706,6 +1754,36 @@ document.getElementById('cpFrontImage').addEventListener('change', async (e) => 
   reapplyBtn.disabled = false; reapplyBtn.style.opacity = 1; reapplyBtn.style.cursor = 'pointer';
   rebuildTexture();
 });
+
+// Spine + Back image uploads: same pattern as front, but the image acts as a
+// backdrop with the existing text overlays drawn on top (see paintSpine /
+// paintBack). Persisted as base64 in the design save.
+function wireImageUpload(faceKey, inputId, clearId, getBitmap, setBitmap, setData) {
+  const input = document.getElementById(inputId);
+  const clearBtn = document.getElementById(clearId);
+  input.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setData(await new Promise(res => {
+      const reader = new FileReader();
+      reader.onload = (ev) => res(ev.target.result);
+      reader.readAsDataURL(file);
+    }));
+    setBitmap(await createImageBitmap(file));
+    clearBtn.style.display = '';
+    rebuildTexture(); applyTextureToBook(true);
+  });
+  clearBtn.addEventListener('click', () => {
+    setBitmap(null); setData(null);
+    input.value = '';
+    clearBtn.style.display = 'none';
+    rebuildTexture(); applyTextureToBook(true);
+  });
+}
+wireImageUpload('spine', 'cpSpineImage', 'cpSpineImageClear',
+  () => spineImageBitmap, (b) => { spineImageBitmap = b; }, (d) => { spineImageData = d; });
+wireImageUpload('back', 'cpBackImage', 'cpBackImageClear',
+  () => backImageBitmap, (b) => { backImageBitmap = b; }, (d) => { backImageData = d; });
 
 // EPUB import: pull the front-cover image + a sample of body text from the
 // middle of the book and apply both to the design. Uses JSZip (loaded from
