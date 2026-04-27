@@ -136,10 +136,6 @@
     <div class="dim-label"><span>Book Thickness</span><span><span id="tVal">2.0</span><span class="dim-unit">cm</span></span></div>
     <input type="range" id="tSlider" min="0.3" max="6" step="0.1" value="2">
   </div>
-  <div class="dim-row">
-    <div class="dim-label"><span>Cover Board</span><span><span id="ctVal">1.0</span><span class="dim-unit">×</span></span></div>
-    <input type="range" id="ctSlider" min="0.5" max="2" step="0.05" value="1">
-  </div>
   <hr class="divider">
   <div class="section-label">Animation</div>
   <button id="openBtn">Open Book</button>
@@ -366,13 +362,11 @@ const sliders = {
   w: document.getElementById('wSlider'),
   h: document.getElementById('hSlider'),
   t: document.getElementById('tSlider'),
-  ct: document.getElementById('ctSlider'),
 };
 const vals = {
   w: document.getElementById('wVal'),
   h: document.getElementById('hVal'),
   t: document.getElementById('tVal'),
-  ct: document.getElementById('ctVal'),
 };
 const openSlider = document.getElementById('openSlider');
 const openVal = document.getElementById('openVal');
@@ -467,7 +461,7 @@ fill.position.set(...THEME.fillLight.pos); scene.add(fill);
 const rim = new THREE.DirectionalLight(THEME.rimLight.color, THEME.rimLight.intensity);
 rim.position.set(...THEME.rimLight.pos); scene.add(rim);
 
-const DEFAULT_W = 14, DEFAULT_H = 21, DEFAULT_T = 2, DEFAULT_CT = 1;
+const DEFAULT_W = 14, DEFAULT_H = 21, DEFAULT_T = 2;
 
 let baseSize = { x: 1, y: 1, z: 1 };
 let bookGroup = null;
@@ -478,20 +472,13 @@ let openAmount = 0;
 let isOpen = false;
 let animating = false;
 
-function applySize(wCm, hCm, tCm, coverScale) {
+function applySize(wCm, hCm, tCm) {
   if (!bookGroup) return;
-  const ct = (coverScale != null) ? coverScale : DEFAULT_CT;
   const refScale = DEFAULT_H / baseSize.y;
-  const sx = refScale * (wCm / DEFAULT_W);   // width  → model X axis
-  const sy = refScale * (tCm / DEFAULT_T);   // thickness → model Y axis (depth after rotation)
-  const sz = refScale * (hCm / DEFAULT_H);   // height → model Z axis (up after rotation)
+  const sx = refScale * (wCm / DEFAULT_W);
+  const sy = refScale * (tCm / DEFAULT_T);
+  const sz = refScale * (hCm / DEFAULT_H);
   bookGroup.scale.set(sx, sy, sz);
-  // Cover board: the SkinnedMesh can't be locally scaled cleanly (bone
-  // deformation fights it). Instead shrink the plain page-block meshes by 1/ct
-  // so the cover stays at full depth while the page stack becomes relatively
-  // thinner — exactly what a thicker board looks like.
-  if (bookMesh) bookMesh.scale.y = 1;
-  pagesMeshes.forEach(m => { m.scale.y = 1 / ct; });
 }
 
 function sitOnGround() {
@@ -629,24 +616,20 @@ function onSlider() {
   const w = parseFloat(sliders.w.value);
   const h = parseFloat(sliders.h.value);
   const t = parseFloat(sliders.t.value);
-  const ct = parseFloat(sliders.ct.value);
   vals.w.textContent = w.toFixed(1);
   vals.h.textContent = h.toFixed(1);
   vals.t.textContent = t.toFixed(1);
-  vals.ct.textContent = ct.toFixed(2);
-  applySize(w, h, t, ct);
+  applySize(w, h, t);
 }
 
 sliders.w.addEventListener('input', onSlider);
 sliders.h.addEventListener('input', onSlider);
 sliders.t.addEventListener('input', onSlider);
-sliders.ct.addEventListener('input', onSlider);
 
 document.getElementById('resetBtn').addEventListener('click', () => {
   sliders.w.value = DEFAULT_W;
   sliders.h.value = DEFAULT_H;
   sliders.t.value = DEFAULT_T;
-  sliders.ct.value = DEFAULT_CT;
   onSlider();
   setOpenAmount(0);
   rotXSlider.value = 0; rotYSlider.value = 0; rotZSlider.value = 0;
