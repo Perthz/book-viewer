@@ -164,6 +164,7 @@
     <select id="posSelect" style="flex:1;padding:5px 8px;border-radius:8px;border:1px solid #555;background:#222;color:#ccc;cursor:pointer">
       <option value="">— Load position —</option>
     </select>
+    <input type="text" id="posName" placeholder="Position name" style="display:none;flex:1;padding:5px 8px;border-radius:8px;border:1px solid rgba(108,143,255,0.5);background:#1a1a22;color:#fff;font-size:0.74rem;font-family:inherit;">
     <button class="btn anim-btn" id="savePosBtn" title="Save current rotation + zoom as a named camera position">Save</button>
     <button class="btn anim-btn" id="delPosBtn" style="background:#4a2020;display:flex;align-items:center;justify-content:center;padding:5px 8px" title="Delete the selected camera position" aria-label="Delete saved camera position">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f88" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -316,6 +317,7 @@
 
   <div class="cp-saves">
     <select id="cpDesignSelect"><option value="">— Load design —</option></select>
+    <input type="text" id="cpDesignName" placeholder="New design name" style="display:none;flex:1;padding:6px 8px;border-radius:6px;border:1px solid rgba(108,143,255,0.5);background:#1a1a22;color:#fff;font-size:0.74rem;font-family:inherit;">
     <button id="cpSaveBtn">Save</button>
     <button id="cpDelBtn" style="background:#4a2020;color:#f88;">🗑</button>
   </div>
@@ -705,20 +707,46 @@ posSelect.addEventListener('change', () => {
   posSelect.value = '';
 });
 
-savePosBtn.addEventListener('click', () => {
-  const name = prompt('Position name:');
-  if (!name || !name.trim()) return;
-  const stored = JSON.parse(localStorage.getItem('bookViewerPositions') || '[]');
-  stored.push({
-    name: name.trim(),
-    rx: parseInt(rotXSlider.value),
-    ry: parseInt(rotYSlider.value),
-    rz: parseInt(rotZSlider.value),
-    ...getCameraState(),
+// Save camera position — same inline-input pattern as design save (window.prompt
+// is blocked in many embedded contexts).
+(() => {
+  const posNameInput = document.getElementById('posName');
+  function showInput() {
+    posSelect.style.display = 'none';
+    posNameInput.style.display = '';
+    posNameInput.value = '';
+    posNameInput.focus();
+  }
+  function hideInput() {
+    posNameInput.style.display = 'none';
+    posSelect.style.display = '';
+  }
+  function commit() {
+    const name = posNameInput.value.trim();
+    if (!name) { posNameInput.focus(); return; }
+    const stored = JSON.parse(localStorage.getItem('bookViewerPositions') || '[]');
+    stored.push({
+      name,
+      rx: parseInt(rotXSlider.value),
+      ry: parseInt(rotYSlider.value),
+      rz: parseInt(rotZSlider.value),
+      ...getCameraState(),
+    });
+    localStorage.setItem('bookViewerPositions', JSON.stringify(stored));
+    hideInput();
+    loadPositions();
+  }
+  savePosBtn.addEventListener('click', () => {
+    if (posNameInput.style.display === 'none') showInput(); else commit();
   });
-  localStorage.setItem('bookViewerPositions', JSON.stringify(stored));
-  loadPositions();
-});
+  posNameInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); commit(); }
+    if (e.key === 'Escape') { e.preventDefault(); hideInput(); }
+  });
+  posNameInput.addEventListener('blur', () => {
+    if (!posNameInput.value.trim()) hideInput();
+  });
+})();
 
 delPosBtn.addEventListener('click', () => {
   const idx = posSelect.value;
@@ -1605,14 +1633,43 @@ function loadDesignList() {
     sel.appendChild(o);
   });
 }
-document.getElementById('cpSaveBtn').addEventListener('click', () => {
-  const name = prompt('Design name:');
-  if (!name || !name.trim()) return;
-  const list = JSON.parse(localStorage.getItem(DESIGN_KEY) || '[]');
-  list.push({ name: name.trim(), design: readDesign() });
-  localStorage.setItem(DESIGN_KEY, JSON.stringify(list));
-  loadDesignList();
-});
+// Save design — uses an inline name input instead of window.prompt() because
+// modern browsers (and embedded contexts like Claude Preview) block prompts.
+(() => {
+  const sel = document.getElementById('cpDesignSelect');
+  const input = document.getElementById('cpDesignName');
+  const saveBtn = document.getElementById('cpSaveBtn');
+  function showInput() {
+    sel.style.display = 'none';
+    input.style.display = '';
+    input.value = '';
+    input.focus();
+  }
+  function hideInput() {
+    input.style.display = 'none';
+    sel.style.display = '';
+  }
+  function commit() {
+    const name = input.value.trim();
+    if (!name) { input.focus(); return; }
+    const list = JSON.parse(localStorage.getItem(DESIGN_KEY) || '[]');
+    list.push({ name, design: readDesign() });
+    localStorage.setItem(DESIGN_KEY, JSON.stringify(list));
+    hideInput();
+    loadDesignList();
+  }
+  saveBtn.addEventListener('click', () => {
+    if (input.style.display === 'none') showInput(); else commit();
+  });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); commit(); }
+    if (e.key === 'Escape') { e.preventDefault(); hideInput(); }
+  });
+  input.addEventListener('blur', () => {
+    // Cancel on blur if empty (user clicked away without typing)
+    if (!input.value.trim()) hideInput();
+  });
+})();
 document.getElementById('cpDesignSelect').addEventListener('change', (e) => {
   const idx = e.target.value; if (idx === '') return;
   const list = JSON.parse(localStorage.getItem(DESIGN_KEY) || '[]');
