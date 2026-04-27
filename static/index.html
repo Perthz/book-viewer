@@ -341,6 +341,7 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script type="importmap">
 {
   "imports": {
@@ -1653,6 +1654,113 @@ document.getElementById('cpFrontImage').addEventListener('change', async (e) => 
   flashPaletteStatus(applied);
   reapplyBtn.disabled = false; reapplyBtn.style.opacity = 1; reapplyBtn.style.cursor = 'pointer';
   rebuildTexture();
+});
+
+// EPUB import: pull the front-cover image + a sample of body text from the
+// middle of the book and apply both to the design. Uses JSZip (loaded from
+// CDN above) to read the EPUB archive, then DOMParser on the OPF + a
+// chapter file. Falls back gracefully if cover or body can't be located.
+async function parseEpub(file) {
+  if (typeof JSZip === 'undefined') throw new Error('JSZip not loaded');
+  const zip = await JSZip.loadAsync(file);
+  // 1. Locate the OPF via container.xml
+  const containerEntry = zip.file('META-INF/container.xml');
+  if (!containerEntry) throw new Error('Not an EPUB (no META-INF/container.xml)');
+  const containerXml = await containerEntry.async('text');
+  const containerDoc = new DOMParser().parseFromString(containerXml, 'application/xml');
+  const opfPath = containerDoc.querySelector('rootfile')?.getAttribute('full-path');
+  if (!opfPath) throw new Error('OPF path not found in container.xml');
+  // 2. Read OPF manifest + spine
+  const opfXml = await zip.file(opfPath).async('text');
+  const opf = new DOMParser().parseFromString(opfXml, 'application/xml');
+  const opfDir = opfPath.includes('/') ? opfPath.replace(/[^/]*$/, '') : '';
+  const resolve = (rel) => opfDir + rel;
+  // 3. Find cover image (three fallback strategies, in EPUB-3 → -2 order)
+  let coverHref = opf.querySelector('manifest item[properties~="cover-image"]')?.getAttribute('href');
+  if (!coverHref) {
+    const id = opf.querySelector('metadata meta[name="cover"]')?.getAttribute('content');
+    if (id) coverHref = opf.querySelector(`manifest item[id="${id}"]`)?.getAttribute('href');
+  }
+  if (!coverHref) {
+    coverHref = opf.querySelector('manifest item[media-type^="image"]')?.getAttribute('href');
+  }
+  let coverBitmap = null;
+  if (coverHref) {
+    const f = zip.file(resolve(coverHref));
+    if (f) {
+      try { coverBitmap = await createImageBitmap(await f.async('blob')); } catch {}
+    }
+  }
+  // 4. Sample body text from the middle of the spine
+  const manifestById = {};
+  opf.querySelectorAll('manifest item').forEach(it => {
+    manifestById[it.getAttribute('id')] = it.getAttribute('href');
+  });
+  const spineIds = [...opf.querySelectorAll('spine itemref')].map(r => r.getAttribute('idref'));
+  let bodyText = '';
+  if (spineIds.length) {
+    const mid = Math.floor(spineIds.length / 2);
+    // Try the middle chapter; if it's empty/short, walk outward
+    for (let off = 0; off < spineIds.length && bodyText.length < 600; off++) {
+      const direction = off % 2 === 0 ? 1 : -1;
+      const idx = mid + direction * Math.ceil(off / 2);
+      if (idx < 0 || idx >= spineIds.length) continue;
+      const href = manifestById[spineIds[idx]];
+      if (!href) continue;
+      const f = zip.file(resolve(href));
+      if (!f) continue;
+      const html = await f.async('text');
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const text = (doc.body?.textContent || '').replace(/\s+/g, ' ').trim();
+      if (text.length > bodyText.length) bodyText = text;
+    }
+  }
+  // Trim to a generous length — paintBookContent will wrap and clip per region
+  return { coverBitmap, bodyText: bodyText.slice(0, 2000) };
+}
+
+document.getElementById('cpLoadEpub').addEventListener('click', () => {
+  document.getElementById('cpEpubInput').click();
+});
+document.getElementById('cpEpubInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const status = document.getElementById('cpPaletteStatus');
+  status.style.color = '#7ad07a';
+  status.textContent = 'Reading EPUB…';
+  status.style.display = '';
+  try {
+    const { coverBitmap, bodyText } = await parseEpub(file);
+    const updated = [];
+    if (coverBitmap) {
+      frontImageBitmap = coverBitmap;
+      // Persist as data URL so design save still works
+      const c = document.createElement('canvas');
+      c.width = coverBitmap.width; c.height = coverBitmap.height;
+      c.getContext('2d').drawImage(coverBitmap, 0, 0);
+      frontImageData = c.toDataURL('image/png');
+      document.getElementById('cpFrontImageName').textContent = file.name + ' (cover)';
+      const reapplyBtn = document.getElementById('cpReapplyPalette');
+      reapplyBtn.disabled = false; reapplyBtn.style.opacity = 1; reapplyBtn.style.cursor = 'pointer';
+      applyPaletteToDesign(extractPalette(frontImageBitmap));
+      updated.push('cover');
+    }
+    if (bodyText) {
+      $set('cpPaperContent', bodyText);
+      updated.push('inside content');
+    }
+    rebuildTexture();
+    status.textContent = updated.length
+      ? `Imported ${updated.join(' + ')} from ${file.name}`
+      : `No cover or body text found in ${file.name}`;
+    if (!updated.length) status.style.color = '#d07a7a';
+  } catch (err) {
+    status.style.color = '#d07a7a';
+    status.textContent = 'EPUB import failed: ' + err.message;
+  }
+  clearTimeout(parseEpub._t);
+  parseEpub._t = setTimeout(() => { status.style.display = 'none'; }, 5000);
+  e.target.value = ''; // allow re-loading the same file
 });
 
 // Apply button — push to 3D
