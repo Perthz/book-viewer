@@ -97,6 +97,8 @@
     #cpPreview { width: 100%; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); display: block; image-rendering: auto; background: #222; }
     #cpPreviewLabel { position: absolute; top: 6px; left: 8px; font-size: 0.65rem; color: rgba(255,255,255,0.5); letter-spacing: 0.05em; }
 
+    .cp-close-x { position: absolute; top: 10px; right: 12px; width: 28px; height: 28px; border-radius: 6px; border: 0; background: transparent; color: #888; font-size: 20px; line-height: 1; cursor: pointer; padding: 0; }
+    .cp-close-x:hover { background: rgba(255,255,255,0.08); color: #fff; }
     .cp-actions { display: flex; gap: 6px; margin-top: 14px; flex-wrap: wrap; }
     .cp-actions button { padding: 8px 12px; border-radius: 6px; font-size: 0.74rem; cursor: pointer; font-family: inherit; }
     .cp-apply { flex: 1; min-width: 100px; background: rgba(200,100,255,0.2); border: 1px solid rgba(200,100,255,0.4); color: #c864ff; }
@@ -158,8 +160,12 @@
     <select id="posSelect" style="flex:1;padding:5px 8px;border-radius:8px;border:1px solid #555;background:#222;color:#ccc;cursor:pointer">
       <option value="">— Load position —</option>
     </select>
-    <button class="btn anim-btn" id="savePosBtn">Save</button>
-    <button class="btn anim-btn" id="delPosBtn" style="background:#4a2020">🗑</button>
+    <button class="btn anim-btn" id="savePosBtn" title="Save current rotation + zoom as a named camera position">Save</button>
+    <button class="btn anim-btn" id="delPosBtn" style="background:#4a2020;display:flex;align-items:center;justify-content:center;padding:5px 8px" title="Delete the selected camera position" aria-label="Delete saved camera position">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f88" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/>
+      </svg>
+    </button>
   </div>
   <hr class="divider">
   <button id="coverDesignerBtn">Cover Designer</button>
@@ -167,6 +173,7 @@
 
 <!-- Cover Designer Panel v2 -->
 <div id="coverPanel">
+  <button id="cpClose" class="cp-close-x" title="Close" aria-label="Close cover designer">×</button>
   <h2>Cover Designer</h2>
 
   <div id="cpPreviewWrap">
@@ -174,21 +181,12 @@
     <div id="cpPreviewLabel">UV LAYOUT · BACK | SPINE | FRONT</div>
   </div>
 
-  <label class="cp-checkbox" style="margin-bottom:10px;">
-  <!-- INNER COVER -->
-  <div class="cp-page" data-page="inner">
-    <div class="cp-row">
-      <label class="cp-label">Inner Cover Color</label>
-      <div class="cp-color-wrap"><input type="color" id="cpInnerColor" value="#8B1A1A"><span id="cpInnerColorHex">#8B1A1A</span></div>
-    </div>
-    <p style="font-size:0.72rem;color:#888;margin-top:8px;">Fills the inner liner visible when the book is open. Auto-syncs to front cover color by default.</p>
-    <label style="display:flex;align-items:center;gap:8px;font-size:0.8rem;color:#ccc;margin-top:10px;">
-      <input type="checkbox" id="cpInnerSync" checked> Sync to front cover color
+  <div id="cpCalibRow" style="margin-bottom:10px;display:none;align-items:center;gap:10px;">
+    <label class="cp-checkbox" style="margin:0;">
+      <input type="checkbox" id="cpShowZones"> Calibration mode (paint regions in legend colors)
     </label>
+    <button class="cp-secondary" id="cpCopyCalib" style="padding:4px 10px;font-size:0.7rem;">Copy calibration</button>
   </div>
-
-    <input type="checkbox" id="cpShowZones"> Calibration mode (paint regions in legend colors)
-  </label>
 
   <div class="cp-tabs">
     <button class="cp-tab active" data-tab="front">Front</button>
@@ -302,6 +300,16 @@
     </div>
   </div>
 
+  <!-- INNER -->
+  <div class="cp-page" data-page="inner">
+    <div class="cp-row">
+      <label class="cp-label">Inner Cover Color</label>
+      <div class="cp-color-wrap"><input type="color" id="cpInnerColor" value="#8B1A1A"><span id="cpInnerColorHex">#8B1A1A</span></div>
+    </div>
+    <label class="cp-checkbox"><input type="checkbox" id="cpInnerSync" checked> Sync to front cover color</label>
+    <p style="font-size:0.72rem;color:#888;margin-top:8px;">Fills the inner liner visible when the book is open. Picking a custom colour automatically unchecks Sync.</p>
+  </div>
+
   <div class="cp-saves">
     <select id="cpDesignSelect"><option value="">— Load design —</option></select>
     <button id="cpSaveBtn">Save</button>
@@ -314,8 +322,6 @@
     <button class="cp-secondary" id="cpDownloadJSON">Download JSON</button>
     <button class="cp-secondary" id="cpLoadEpub">Load .epub…</button>
     <input type="file" id="cpEpubInput" accept=".epub" style="display:none">
-    <button class="cp-secondary" id="cpCopyCalib">Copy calibration</button>
-    <button class="cp-secondary" id="cpClose">Close</button>
   </div>
 </div>
 
@@ -1449,8 +1455,15 @@ LIVE_IDS.forEach(id => {
   el.addEventListener('change', () => { syncHexLabels(); syncRangeLabels(); rebuildTexture(); });
 });
 
-// Show-zones debug toggle
+// Show-zones debug toggle (the row itself is hidden by default; press Shift+D
+// while focus is in the body to reveal calibration tools).
 document.getElementById('cpShowZones').addEventListener('change', () => { rebuildTexture(); applyTextureToBook(true); });
+window.addEventListener('keydown', (e) => {
+  if (e.shiftKey && (e.key === 'D' || e.key === 'd') && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '')) {
+    const row = document.getElementById('cpCalibRow');
+    row.style.display = row.style.display === 'none' ? 'flex' : 'none';
+  }
+});
 document.getElementById('cpInnerColor').addEventListener('input', (e) => {
   document.getElementById('cpInnerColorHex').textContent = e.target.value;
   // Changing the custom color implies the user wants to use it — uncheck sync
