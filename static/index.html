@@ -108,6 +108,7 @@
     .cp-apply:hover { background: rgba(200,100,255,0.35); }
     .cp-secondary { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: #aaa; }
     .cp-secondary:hover { background: rgba(255,255,255,0.1); color: #ddd; }
+    .cp-secondary.cp-active { background: rgba(108,143,255,0.2); border-color: rgba(108,143,255,0.5); color: #6c8fff; }
 
     .cp-saves { display: flex; align-items: center; gap: 4px; margin-top: 10px; }
     .cp-saves select { flex: 1; padding: 6px 8px; border-radius: 6px; border: 1px solid #333; background: #1a1a22; color: #ccc; cursor: pointer; font-family: inherit; font-size: 0.74rem; }
@@ -322,6 +323,8 @@
   <div class="cp-actions">
     <button class="cp-apply" id="cpApply">Apply to Book</button>
     <button class="cp-secondary" id="cpDownload">Download PNG</button>
+    <button class="cp-secondary" id="cpUploadAtlas">Load UV Layout…</button>
+    <input type="file" id="cpAtlasInput" accept="image/png,image/jpeg" style="display:none">
     <button class="cp-secondary" id="cpDownloadJSON">Download JSON</button>
     <button class="cp-secondary" id="cpLoadEpub">Load .epub…</button>
     <input type="file" id="cpEpubInput" accept=".epub" style="display:none">
@@ -768,6 +771,7 @@ let bookMaterial = null;
 let coverDesignerReady = false;
 let frontImageBitmap = null;               // user-uploaded cover image (runtime)
 let frontImageData = null;                 // base64 data URL (persisted in design)
+let uvAtlasOverride = null;                // full-atlas image, when set rebuildTexture() blits it raw
 
 // ── REGIONS table (hand-verified pixel rectangles on the 2048² texture) ─────
 //
@@ -1240,6 +1244,15 @@ function rebuildTexture() {
   const d = readDesign();
   texCtx.clearRect(0, 0, TEX_W, TEX_H);
 
+  // UV-atlas override: user uploaded a full layout PNG. Blit it directly,
+  // skip every per-region painter, and trust their atlas as authoritative.
+  if (uvAtlasOverride) {
+    texCtx.drawImage(uvAtlasOverride, 0, 0, TEX_W, TEX_H);
+    renderPreview();
+    if (liveBookTexture) applyTextureToBook(true);
+    return;
+  }
+
   if (document.getElementById('cpShowZones').checked) {
     paintCalibrationOverlay();
   } else {
@@ -1527,6 +1540,40 @@ document.getElementById('cpDownload').addEventListener('click', () => {
   a.href = texCanvas.toDataURL('image/png');
   a.download = 'book-cover-design.png';
   a.click();
+});
+
+// Upload UV layout — replaces the entire 2048² atlas with the user's image
+// (typically a Download-PNG export they edited externally). All per-region
+// painters are bypassed while the override is active. Click again to clear
+// and return to the per-tab designer.
+const cpUploadAtlas = document.getElementById('cpUploadAtlas');
+const cpAtlasInput = document.getElementById('cpAtlasInput');
+function refreshAtlasButton() {
+  cpUploadAtlas.textContent = uvAtlasOverride ? 'Clear UV Layout' : 'Load UV Layout…';
+  cpUploadAtlas.classList.toggle('cp-active', !!uvAtlasOverride);
+}
+cpUploadAtlas.addEventListener('click', () => {
+  if (uvAtlasOverride) {
+    uvAtlasOverride = null;
+    cpAtlasInput.value = '';
+    refreshAtlasButton();
+    rebuildTexture(); applyTextureToBook(true);
+  } else {
+    cpAtlasInput.click();
+  }
+});
+cpAtlasInput.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    uvAtlasOverride = await createImageBitmap(file);
+  } catch (err) {
+    cpUploadAtlas.textContent = 'Load failed';
+    setTimeout(refreshAtlasButton, 2000);
+    return;
+  }
+  refreshAtlasButton();
+  rebuildTexture(); applyTextureToBook(true);
 });
 
 // Download JSON — the portable design config that biblio will consume.
