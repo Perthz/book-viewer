@@ -21,6 +21,7 @@
       z-index: 20; display: none;
     }
     #controls h3 { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #666; margin-bottom: 14px; font-weight: 500; }
+    .section-label { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.1em; color: #6c8fff; margin: 0 0 10px; font-weight: 600; opacity: 0.85; }
     .dim-row { margin-bottom: 12px; }
     .dim-label { display: flex; justify-content: space-between; margin-bottom: 5px; }
     .dim-label span:first-child { color: #aaa; }
@@ -58,15 +59,15 @@
     #coverDesignerBtn:hover { background: rgba(200,100,255,0.25); }
 
     #coverPanel {
-      position: fixed; top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
+      position: fixed; top: 0; left: 0; bottom: 0;
       background: rgba(15, 15, 22, 0.96);
-      border: 1px solid rgba(200,100,255,0.25);
-      border-radius: 14px; padding: 22px;
+      border-right: 1px solid rgba(200,100,255,0.25);
+      padding: 22px;
       color: #e0e0e0; font-size: 0.78rem;
-      width: 540px; max-height: 92vh; overflow-y: auto;
+      width: 560px; max-width: 100vw; overflow-y: auto;
       z-index: 100; display: none;
       backdrop-filter: blur(16px);
+      box-shadow: 4px 0 24px rgba(0,0,0,0.3);
     }
     #coverPanel h2 { font-size: 0.85rem; font-weight: 600; color: #c864ff; margin-bottom: 14px; letter-spacing: 0.05em; }
 
@@ -87,6 +88,9 @@
     .cp-color-wrap { display: flex; align-items: center; gap: 8px; }
     .cp-color-wrap input[type="color"] { width: 36px; height: 32px; border: none; background: none; cursor: pointer; border-radius: 4px; padding: 0; }
     .cp-color-wrap span { color: #888; font-size: 0.7rem; font-family: monospace; }
+    .cp-color-hex { width: 76px; padding: 4px 6px; border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; background: #1a1a22; color: #ccc; font-size: 0.7rem; font-family: monospace; text-transform: uppercase; }
+    .cp-color-hex:focus { outline: none; border-color: rgba(108,143,255,0.5); }
+    .cp-color-hex.invalid { border-color: rgba(255,80,80,0.6); }
     .cp-range-row { display: flex; align-items: center; gap: 8px; }
     .cp-range-row input[type="range"] { flex: 1; }
     .cp-range-row span { color: #888; font-size: 0.7rem; min-width: 38px; text-align: right; }
@@ -118,7 +122,8 @@
 <div id="hint">Drag to rotate · Scroll to zoom · Right-drag to pan</div>
 
 <div id="controls">
-  <h3>Book Dimensions</h3>
+  <h3>Book</h3>
+  <div class="section-label">Dimensions</div>
   <div class="dim-row">
     <div class="dim-label"><span>Width</span><span><span id="wVal">14.0</span><span class="dim-unit">cm</span></span></div>
     <input type="range" id="wSlider" min="5" max="50" step="0.5" value="14">
@@ -136,12 +141,14 @@
     <input type="range" id="ctSlider" min="0.5" max="2" step="0.05" value="1">
   </div>
   <hr class="divider">
+  <div class="section-label">Animation</div>
   <button id="openBtn">Open Book</button>
   <div class="anim-row">
     <div class="anim-label"><span>Open Amount</span><span><span id="openVal">0</span>%</span></div>
     <input type="range" id="openSlider" min="0" max="100" step="1" value="0">
   </div>
   <hr class="divider">
+  <div class="section-label">Rotation</div>
   <div class="rot-row">
     <div class="rot-label"><span>Rotate X</span><span><span id="rotXVal">0</span>°</span></div>
     <input type="range" id="rotXSlider" min="-180" max="180" step="1" value="0">
@@ -155,6 +162,7 @@
     <input type="range" id="rotZSlider" min="-180" max="180" step="1" value="0">
   </div>
   <hr class="divider">
+  <div class="section-label">Camera</div>
   <button id="resetBtn">Reset</button>
   <div style="display:flex;align-items:center;gap:4px;margin-top:8px">
     <select id="posSelect" style="flex:1;padding:5px 8px;border-radius:8px;border:1px solid #555;background:#222;color:#ccc;cursor:pointer">
@@ -201,11 +209,11 @@
     <div class="cp-row-inline">
       <div class="cp-row">
         <label class="cp-label">Cover Color</label>
-        <div class="cp-color-wrap"><input type="color" id="cpFrontColor" value="#8B1A1A"><span id="cpFrontColorHex">#8B1A1A</span></div>
+        <div class="cp-color-wrap"><input type="color" id="cpFrontColor" value="#8B1A1A"><input type="text" class="cp-color-hex" id="cpFrontColorHex" value="#8B1A1A" maxlength="7" spellcheck="false"></div>
       </div>
       <div class="cp-row">
         <label class="cp-label">Text Color</label>
-        <div class="cp-color-wrap"><input type="color" id="cpFrontTextColor" value="#F2D27A"><span id="cpFrontTextColorHex">#F2D27A</span></div>
+        <div class="cp-color-wrap"><input type="color" id="cpFrontTextColor" value="#F2D27A"><input type="text" class="cp-color-hex" id="cpFrontTextColorHex" value="#F2D27A" maxlength="7" spellcheck="false"></div>
       </div>
     </div>
     <div class="cp-row"><label class="cp-label">Title</label><input type="text" class="cp-input" id="cpFrontTitle" value="The Great Gatsby" maxlength="80"></div>
@@ -240,11 +248,11 @@
     <div class="cp-row-inline">
       <div class="cp-row">
         <label class="cp-label">Spine Color</label>
-        <div class="cp-color-wrap"><input type="color" id="cpSpineColor" value="#6B1414"><span id="cpSpineColorHex">#6B1414</span></div>
+        <div class="cp-color-wrap"><input type="color" id="cpSpineColor" value="#6B1414"><input type="text" class="cp-color-hex" id="cpSpineColorHex" value="#6B1414" maxlength="7" spellcheck="false"></div>
       </div>
       <div class="cp-row">
         <label class="cp-label">Text Color</label>
-        <div class="cp-color-wrap"><input type="color" id="cpSpineTextColor" value="#F2D27A"><span id="cpSpineTextColorHex">#F2D27A</span></div>
+        <div class="cp-color-wrap"><input type="color" id="cpSpineTextColor" value="#F2D27A"><input type="text" class="cp-color-hex" id="cpSpineTextColorHex" value="#F2D27A" maxlength="7" spellcheck="false"></div>
       </div>
     </div>
     <div class="cp-row"><label class="cp-label">Spine Title</label><input type="text" class="cp-input" id="cpSpineTitle" value="GATSBY" maxlength="40"></div>
@@ -261,11 +269,11 @@
     <div class="cp-row-inline">
       <div class="cp-row">
         <label class="cp-label">Back Color</label>
-        <div class="cp-color-wrap"><input type="color" id="cpBackColor" value="#8B1A1A"><span id="cpBackColorHex">#8B1A1A</span></div>
+        <div class="cp-color-wrap"><input type="color" id="cpBackColor" value="#8B1A1A"><input type="text" class="cp-color-hex" id="cpBackColorHex" value="#8B1A1A" maxlength="7" spellcheck="false"></div>
       </div>
       <div class="cp-row">
         <label class="cp-label">Text Color</label>
-        <div class="cp-color-wrap"><input type="color" id="cpBackTextColor" value="#F2EFE6"><span id="cpBackTextColorHex">#F2EFE6</span></div>
+        <div class="cp-color-wrap"><input type="color" id="cpBackTextColor" value="#F2EFE6"><input type="text" class="cp-color-hex" id="cpBackTextColorHex" value="#F2EFE6" maxlength="7" spellcheck="false"></div>
       </div>
     </div>
     <div class="cp-row">
@@ -283,11 +291,11 @@
   <div class="cp-page" data-page="paper">
     <div class="cp-row">
       <label class="cp-label">Paper Rim Color</label>
-      <div class="cp-color-wrap"><input type="color" id="cpPaperColor" value="#F5F0E8"><span id="cpPaperColorHex">#F5F0E8</span></div>
+      <div class="cp-color-wrap"><input type="color" id="cpPaperColor" value="#F5F0E8"><input type="text" class="cp-color-hex" id="cpPaperColorHex" value="#F5F0E8" maxlength="7" spellcheck="false"></div>
     </div>
     <div class="cp-row">
       <label class="cp-label">Page Background Color</label>
-      <div class="cp-color-wrap"><input type="color" id="cpPageBgColor" value="#FAF7F0"><span id="cpPageBgColorHex">#FAF7F0</span></div>
+      <div class="cp-color-wrap"><input type="color" id="cpPageBgColor" value="#FAF7F0"><input type="text" class="cp-color-hex" id="cpPageBgColorHex" value="#FAF7F0" maxlength="7" spellcheck="false"></div>
     </div>
     <label class="cp-checkbox"><input type="checkbox" id="cpPaperGrain" checked> Paper grain (subtle fiber texture)</label>
     <div class="cp-row" style="margin-top:10px;">
@@ -304,7 +312,7 @@
   <div class="cp-page" data-page="inner">
     <div class="cp-row">
       <label class="cp-label">Inner Cover Color</label>
-      <div class="cp-color-wrap"><input type="color" id="cpInnerColor" value="#8B1A1A"><span id="cpInnerColorHex">#8B1A1A</span></div>
+      <div class="cp-color-wrap"><input type="color" id="cpInnerColor" value="#8B1A1A"><input type="text" class="cp-color-hex" id="cpInnerColorHex" value="#8B1A1A" maxlength="7" spellcheck="false"></div>
     </div>
     <label class="cp-checkbox"><input type="checkbox" id="cpInnerSync" checked> Sync to front cover color</label>
     <p style="font-size:0.72rem;color:#888;margin-top:8px;">Fills the inner liner visible when the book is open. Picking a custom colour automatically unchecks Sync.</p>
@@ -893,10 +901,12 @@ const $set   = (id, v) => { if (v != null) document.getElementById(id).value = v
 const $check = (id) => document.getElementById(id).checked;
 const $checkSet = (id, v) => { document.getElementById(id).checked = !!v; };
 
+const HEX_PAIRS = ['cpFrontColor','cpFrontTextColor','cpSpineColor','cpSpineTextColor','cpBackColor','cpBackTextColor','cpPaperColor','cpPageBgColor','cpInnerColor'];
 function syncHexLabels() {
-  ['cpFrontColor','cpFrontTextColor','cpSpineColor','cpSpineTextColor','cpBackColor','cpBackTextColor','cpPaperColor','cpPageBgColor'].forEach(id => {
+  HEX_PAIRS.forEach(id => {
     const el = document.getElementById(id + 'Hex');
-    if (el) el.textContent = $val(id);
+    // Don't clobber the field while the user is typing in it
+    if (el && document.activeElement !== el) el.value = $val(id).toUpperCase();
   });
 }
 function syncRangeLabels() {
@@ -1324,12 +1334,21 @@ async function initDesigner() {
 }
 
 // ── UI wiring ──────────────────────────────────────────────────────────────
+// Pan the orbit target leftward in world space so the rendered book sits
+// inside the visible canvas area to the right of the drawer.
+const DRAWER_TARGET_OFFSET_X = -1.1;
 document.getElementById('coverDesignerBtn').addEventListener('click', async () => {
   document.getElementById('coverPanel').style.display = 'block';
+  document.body.classList.add('cp-open');
+  orbitControls.target.x = DRAWER_TARGET_OFFSET_X;
+  orbitControls.update();
   await initDesigner();
 });
 document.getElementById('cpClose').addEventListener('click', () => {
   document.getElementById('coverPanel').style.display = 'none';
+  document.body.classList.remove('cp-open');
+  orbitControls.target.x = 0;
+  orbitControls.update();
 });
 document.getElementById('cpCopyCalib').addEventListener('click', () => {
   const out = {};
@@ -1465,12 +1484,35 @@ window.addEventListener('keydown', (e) => {
   }
 });
 document.getElementById('cpInnerColor').addEventListener('input', (e) => {
-  document.getElementById('cpInnerColorHex').textContent = e.target.value;
+  document.getElementById('cpInnerColorHex').value = e.target.value.toUpperCase();
   // Changing the custom color implies the user wants to use it — uncheck sync
   document.getElementById('cpInnerSync').checked = false;
   rebuildTexture(); applyTextureToBook(true);
 });
 document.getElementById('cpInnerSync').addEventListener('change', () => { rebuildTexture(); applyTextureToBook(true); });
+
+// Hex inputs: when the user types a valid #RRGGBB, push it into the matching
+// color picker, mark valid/invalid, and trigger a texture rebuild.
+HEX_PAIRS.forEach(id => {
+  const hexEl = document.getElementById(id + 'Hex');
+  const colorEl = document.getElementById(id);
+  if (!hexEl || !colorEl) return;
+  hexEl.addEventListener('input', () => {
+    let v = hexEl.value.trim();
+    if (v && v[0] !== '#') v = '#' + v;
+    const valid = /^#[0-9A-Fa-f]{6}$/.test(v);
+    hexEl.classList.toggle('invalid', !valid);
+    if (!valid) return;
+    colorEl.value = v;
+    if (id === 'cpInnerColor') document.getElementById('cpInnerSync').checked = false;
+    rebuildTexture(); applyTextureToBook(true);
+  });
+  hexEl.addEventListener('blur', () => {
+    // On blur, snap back to the picker's current value (sanitises bad input)
+    hexEl.classList.remove('invalid');
+    hexEl.value = colorEl.value.toUpperCase();
+  });
+});
 
 // Front cover image upload
 document.getElementById('cpFrontImage').addEventListener('change', async (e) => {
