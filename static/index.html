@@ -289,6 +289,16 @@
       <label class="cp-label">Blurb Size</label>
       <div class="cp-range-row"><input type="range" id="cpBackFontSize" min="18" max="60" step="1" value="32"><span id="cpBackFontSizeVal">32</span></div>
     </div>
+    <div class="cp-row-inline">
+      <div class="cp-row">
+        <label class="cp-label">Genre</label>
+        <input type="text" class="cp-input" id="cpBackGenre" maxlength="40" placeholder="e.g. Fiction">
+      </div>
+      <div class="cp-row">
+        <label class="cp-label">Publisher</label>
+        <input type="text" class="cp-input" id="cpBackPublisher" maxlength="60" placeholder="e.g. Penguin">
+      </div>
+    </div>
     <label class="cp-checkbox"><input type="checkbox" id="cpBackBarcode"> Show barcode placeholder</label>
   </div>
 
@@ -876,6 +886,8 @@ function readDesign() {
       blurb: $val('cpBackBlurb'),
       fontSize: +$val('cpBackFontSize'),
       barcode: $check('cpBackBarcode'),
+      genre: $val('cpBackGenre'),
+      publisher: $val('cpBackPublisher'),
     },
     paper: {
       color: $val('cpPaperColor'),
@@ -922,6 +934,7 @@ function writeDesign(d) {
     $set('cpBackColor', d.back.color); $set('cpBackTextColor', d.back.textColor);
     $set('cpBackBlurb', d.back.blurb); $set('cpBackFontSize', d.back.fontSize);
     $checkSet('cpBackBarcode', d.back.barcode);
+    $set('cpBackGenre', d.back.genre); $set('cpBackPublisher', d.back.publisher);
   }
   if (d.paper) {
     $set('cpPaperColor', d.paper.color);
@@ -1132,22 +1145,60 @@ function paintBack(d) {
     const safeX = w * 0.10, safeY = visH * 0.12;
     const sx0 = r.x0 + safeX, sy0 = visY0 + safeY;
     const sw  = w - safeX * 2, sh = visH - safeY * 2;
-    const barcodeH = d.back.barcode ? sh * 0.18 : 0;
-    const blurbH   = sh - barcodeH;
+
+    // Layout: header (title + byline) → blurb → footer (genre/publisher + barcode)
+    const title = (d.front.title || '').trim();
+    const author = (d.front.author || '').trim();
+    const genre = (d.back.genre || '').trim();
+    const publisher = (d.back.publisher || '').trim();
+    const hasHeader = !!(title || author);
+    const hasFooterText = !!(genre || publisher);
+    const hasFooter = hasFooterText || d.back.barcode;
+
+    const headerH = hasHeader ? sh * 0.18 : 0;
+    const footerH = hasFooter ? Math.max(sh * 0.16, d.back.barcode ? sh * 0.18 : 0) : 0;
+    const blurbY  = sy0 + headerH;
+    const blurbH  = sh - headerH - footerH;
 
     ctx.fillStyle = d.back.textColor;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
+
+    // Header band
+    if (hasHeader) {
+      if (title) {
+        const titleSize = Math.max(28, sw * 0.06);
+        ctx.font = `bold ${titleSize}px Georgia, serif`;
+        ctx.fillText(title, sx0, sy0);
+      }
+      if (author) {
+        const bylineSize = Math.max(20, sw * 0.034);
+        ctx.font = `italic ${bylineSize}px Georgia, serif`;
+        ctx.fillText(`by ${author}`, sx0, sy0 + (title ? Math.max(28, sw * 0.06) * 1.1 : 0));
+      }
+    }
+
+    // Blurb body
     const size = d.back.fontSize * (Math.min(sw, blurbH) / 700);
     ctx.font = `${size}px Georgia, serif`;
     const lineH = size * 1.45;
     const lines = wrapText(ctx, d.back.blurb, sw);
-    const maxLines = Math.floor(blurbH / lineH);
-    let y = sy0;
+    const maxLines = Math.max(0, Math.floor(blurbH / lineH));
+    let y = blurbY + sh * 0.02;
     for (const ln of lines.slice(0, maxLines)) { ctx.fillText(ln, sx0, y); y += lineH; }
 
+    // Footer text band (genre · publisher)
+    if (hasFooterText) {
+      const footerSize = Math.max(16, sw * 0.026);
+      ctx.font = `${footerSize}px Georgia, serif`;
+      ctx.textBaseline = 'bottom';
+      const footerY = sy0 + sh - sh * 0.02;
+      const parts = [genre, publisher].filter(Boolean).join('  ·  ');
+      ctx.fillText(parts.toUpperCase(), sx0, footerY);
+    }
+
     if (d.back.barcode) {
-      const bw = sw * 0.30, bh = barcodeH * 0.85;
+      const bw = sw * 0.30, bh = footerH * 0.85;
       const bx = sx0 + sw - bw, by = sy0 + sh - bh;
       ctx.fillStyle = '#fff'; ctx.fillRect(bx, by, bw, bh);
       ctx.fillStyle = '#000';
@@ -1511,7 +1562,7 @@ const LIVE_IDS = [
   'cpFrontColor','cpFrontTextColor','cpFrontTitle','cpFrontSubtitle','cpFrontAuthor',
   'cpFrontFontSize','cpFrontFont','cpFrontFrame',
   'cpSpineColor','cpSpineTextColor','cpSpineTitle','cpSpineAuthor','cpSpineFontSize','cpSpineBands',
-  'cpBackColor','cpBackTextColor','cpBackBlurb','cpBackFontSize','cpBackBarcode',
+  'cpBackColor','cpBackTextColor','cpBackBlurb','cpBackFontSize','cpBackBarcode','cpBackGenre','cpBackPublisher',
   'cpPaperColor','cpPageBgColor','cpPaperGrain','cpPaperContent','cpPaperFontSize',
 ];
 LIVE_IDS.forEach(id => {
@@ -1695,12 +1746,18 @@ async function parseEpub(file) {
     const path = (opfDir + rel).replace(/\/\.\//g, '/'); // collapse './'
     return zip.file(path) || findEntry(path) || findEntry(rel);
   };
-  // 3. Title + author from Dublin Core metadata
+  // 3. Dublin Core metadata: title, author, description, subject, publisher
   const DC_NS = 'http://purl.org/dc/elements/1.1/';
-  const title = opf.getElementsByTagNameNS(DC_NS, 'title')[0]?.textContent?.trim() || '';
+  const dcText = (tag) => opf.getElementsByTagNameNS(DC_NS, tag)[0]?.textContent?.trim() || '';
+  const title = dcText('title');
   const creators = [...opf.getElementsByTagNameNS(DC_NS, 'creator')]
     .map(e => e.textContent.trim()).filter(Boolean);
   const author = creators.join(', ');
+  const description = dcText('description').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+  const subjects = [...opf.getElementsByTagNameNS(DC_NS, 'subject')]
+    .map(e => e.textContent.trim()).filter(Boolean);
+  const subject = subjects[0] || ''; // first subject usually the primary genre
+  const publisher = dcText('publisher');
   // 4. Find cover image (three fallback strategies, in EPUB-3 → -2 order)
   let coverHref = opf.querySelector('manifest item[properties~="cover-image"]')?.getAttribute('href');
   if (!coverHref) {
@@ -1742,7 +1799,7 @@ async function parseEpub(file) {
     }
   }
   // Trim to a generous length — paintBookContent will wrap and clip per region
-  return { coverBitmap, bodyText: bodyText.slice(0, 2000), title, author };
+  return { coverBitmap, bodyText: bodyText.slice(0, 2000), title, author, description, subject, publisher };
 }
 
 document.getElementById('cpLoadEpub').addEventListener('click', () => {
@@ -1756,7 +1813,7 @@ document.getElementById('cpEpubInput').addEventListener('change', async (e) => {
   status.textContent = 'Reading EPUB…';
   status.style.display = '';
   try {
-    const { coverBitmap, bodyText, title, author } = await parseEpub(file);
+    const { coverBitmap, bodyText, title, author, description, subject, publisher } = await parseEpub(file);
     const updated = [];
     if (coverBitmap) {
       frontImageBitmap = coverBitmap;
@@ -1790,6 +1847,12 @@ document.getElementById('cpEpubInput').addEventListener('change', async (e) => {
       $set('cpPaperContent', bodyText);
       updated.push('inside content');
     }
+    if (description) {
+      $set('cpBackBlurb', description);
+      updated.push('blurb');
+    }
+    if (subject) $set('cpBackGenre', subject);
+    if (publisher) $set('cpBackPublisher', publisher);
     rebuildTexture();
     status.textContent = updated.length
       ? `Imported ${updated.join(' + ')} from ${file.name}`
