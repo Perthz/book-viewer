@@ -241,6 +241,10 @@
         <input type="file" class="cp-input" id="cpFrontImage" accept="image/*" style="flex:1;">
         <span id="cpFrontImageName" style="font-size:0.68rem;color:#888;white-space:nowrap;overflow:hidden;max-width:120px;text-overflow:ellipsis;"></span>
       </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+        <button class="cp-secondary" id="cpReapplyPalette" disabled style="padding:4px 10px;font-size:0.7rem;opacity:0.5;cursor:not-allowed;">Re-apply palette</button>
+        <span id="cpPaletteStatus" style="font-size:0.68rem;color:#7ad07a;display:none;"></span>
+      </div>
     </div>
   </div>
 
@@ -1588,7 +1592,7 @@ const luminance = ({ r, g, b }) => 0.2126 * r + 0.7152 * g + 0.0722 * b;
 // Auto-fill cover/spine/back/inner/text colors from the dominant palette of
 // the uploaded front-cover image. Inner respects its sync-to-front checkbox.
 function applyPaletteToDesign(palette) {
-  if (!palette.length) return;
+  if (!palette.length) return null;
   const main = palette[0];
   const accent = palette[1] || main;
   const spineRgb = { r: Math.round(main.r * 0.7), g: Math.round(main.g * 0.7), b: Math.round(main.b * 0.7) };
@@ -1602,12 +1606,41 @@ function applyPaletteToDesign(palette) {
   // Inner: only override if user has unsync'd; otherwise sync-to-front handles it
   if (!$check('cpInnerSync')) $set('cpInnerColor', rgbToHex(accent));
   syncHexLabels();
+  return { main, accent, spine: spineRgb, text };
 }
+
+// Show a brief swatch-strip status under the file picker so the auto-match
+// is visible. Stays for 4s then fades.
+function flashPaletteStatus(applied, paletteSize) {
+  if (!applied) return;
+  const el = document.getElementById('cpPaletteStatus');
+  const swatch = (rgb) => `<span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${rgbToHex(rgb)};vertical-align:middle;margin:0 1px;"></span>`;
+  el.innerHTML = `Auto-matched cover, spine, back, inner: ${swatch(applied.main)}${swatch(applied.spine)}${swatch(applied.accent)}`;
+  el.style.display = '';
+  clearTimeout(flashPaletteStatus._t);
+  flashPaletteStatus._t = setTimeout(() => { el.style.display = 'none'; }, 4000);
+}
+
+// Re-apply palette button: runs detection again on the cached bitmap. Useful
+// after the user manually tweaks colours and wants to revert to the cover's
+// detected palette without re-uploading.
+document.getElementById('cpReapplyPalette').addEventListener('click', () => {
+  if (!frontImageBitmap) return;
+  const applied = applyPaletteToDesign(extractPalette(frontImageBitmap));
+  flashPaletteStatus(applied);
+  rebuildTexture(); applyTextureToBook(true);
+});
 
 document.getElementById('cpFrontImage').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   document.getElementById('cpFrontImageName').textContent = file ? file.name : '';
-  if (!file) { frontImageBitmap = null; frontImageData = null; rebuildTexture(); return; }
+  const reapplyBtn = document.getElementById('cpReapplyPalette');
+  if (!file) {
+    frontImageBitmap = null; frontImageData = null;
+    reapplyBtn.disabled = true; reapplyBtn.style.opacity = 0.5; reapplyBtn.style.cursor = 'not-allowed';
+    rebuildTexture();
+    return;
+  }
   // Store as base64 for design persistence
   frontImageData = await new Promise((resolve) => {
     const reader = new FileReader();
@@ -1616,7 +1649,9 @@ document.getElementById('cpFrontImage').addEventListener('change', async (e) => 
   });
   frontImageBitmap = await createImageBitmap(file);
   // Auto-detect palette and seed the colour pickers from the uploaded cover.
-  applyPaletteToDesign(extractPalette(frontImageBitmap));
+  const applied = applyPaletteToDesign(extractPalette(frontImageBitmap));
+  flashPaletteStatus(applied);
+  reapplyBtn.disabled = false; reapplyBtn.style.opacity = 1; reapplyBtn.style.cursor = 'pointer';
   rebuildTexture();
 });
 
