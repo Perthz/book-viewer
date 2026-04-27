@@ -137,8 +137,8 @@
     <input type="range" id="tSlider" min="0.3" max="6" step="0.1" value="2">
   </div>
   <div class="dim-row">
-    <div class="dim-label"><span>Page Block</span><span><span id="pbVal">0.90</span><span class="dim-unit">×</span></span></div>
-    <input type="range" id="pbSlider" min="0.5" max="1" step="0.05" value="0.9">
+    <div class="dim-label"><span>Page Block</span><span><span id="pbVal">0.50</span><span class="dim-unit">×</span></span></div>
+    <input type="range" id="pbSlider" min="0.5" max="1" step="0.05" value="0.5">
   </div>
   <hr class="divider">
   <div class="section-label">Animation</div>
@@ -471,7 +471,7 @@ fill.position.set(...THEME.fillLight.pos); scene.add(fill);
 const rim = new THREE.DirectionalLight(THEME.rimLight.color, THEME.rimLight.intensity);
 rim.position.set(...THEME.rimLight.pos); scene.add(rim);
 
-const DEFAULT_W = 14, DEFAULT_H = 21, DEFAULT_T = 2, DEFAULT_PB = 0.9;
+const DEFAULT_W = 14, DEFAULT_H = 21, DEFAULT_T = 2, DEFAULT_PB = 0.5;
 
 let baseSize = { x: 1, y: 1, z: 1 };
 let bookGroup = null;
@@ -732,10 +732,12 @@ posSelect.addEventListener('change', () => {
     posNameInput.style.display = '';
     posNameInput.value = '';
     posNameInput.focus();
+    savePosBtn.textContent = 'OK';
   }
   function hideInput() {
     posNameInput.style.display = 'none';
     posSelect.style.display = '';
+    savePosBtn.textContent = 'Save';
   }
   function commit() {
     const name = posNameInput.value.trim();
@@ -1557,6 +1559,51 @@ HEX_PAIRS.forEach(id => {
 });
 
 // Front cover image upload
+// Palette extraction: downsample the image, bin pixels into 4-bit-per-channel
+// buckets, return the top N most common colors averaged within each bucket.
+function extractPalette(bitmap, topN = 5) {
+  const W = 64, H = 64;
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const cx = c.getContext('2d', { willReadFrequently: true });
+  cx.drawImage(bitmap, 0, 0, W, H);
+  const data = cx.getImageData(0, 0, W, H).data;
+  const bins = new Map();
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i + 3] < 128) continue; // skip transparent
+    const key = ((data[i] >> 4) << 8) | ((data[i + 1] >> 4) << 4) | (data[i + 2] >> 4);
+    const e = bins.get(key);
+    if (e) { e.r += data[i]; e.g += data[i + 1]; e.b += data[i + 2]; e.n++; }
+    else { bins.set(key, { r: data[i], g: data[i + 1], b: data[i + 2], n: 1 }); }
+  }
+  return [...bins.values()]
+    .sort((a, b) => b.n - a.n)
+    .slice(0, topN)
+    .map(e => ({ r: Math.round(e.r / e.n), g: Math.round(e.g / e.n), b: Math.round(e.b / e.n) }));
+}
+const _hex2 = n => Math.max(0, Math.min(255, n)).toString(16).padStart(2, '0');
+const rgbToHex = ({ r, g, b }) => '#' + _hex2(r) + _hex2(g) + _hex2(b);
+const luminance = ({ r, g, b }) => 0.2126 * r + 0.7152 * g + 0.0722 * b;
+
+// Auto-fill cover/spine/back/inner/text colors from the dominant palette of
+// the uploaded front-cover image. Inner respects its sync-to-front checkbox.
+function applyPaletteToDesign(palette) {
+  if (!palette.length) return;
+  const main = palette[0];
+  const accent = palette[1] || main;
+  const spineRgb = { r: Math.round(main.r * 0.7), g: Math.round(main.g * 0.7), b: Math.round(main.b * 0.7) };
+  const text = luminance(main) > 128 ? '#222222' : '#F2EFE6';
+  $set('cpFrontColor', rgbToHex(main));
+  $set('cpBackColor',  rgbToHex(main));
+  $set('cpSpineColor', rgbToHex(spineRgb));
+  $set('cpFrontTextColor', text);
+  $set('cpBackTextColor',  text);
+  $set('cpSpineTextColor', text);
+  // Inner: only override if user has unsync'd; otherwise sync-to-front handles it
+  if (!$check('cpInnerSync')) $set('cpInnerColor', rgbToHex(accent));
+  syncHexLabels();
+}
+
 document.getElementById('cpFrontImage').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   document.getElementById('cpFrontImageName').textContent = file ? file.name : '';
@@ -1568,6 +1615,8 @@ document.getElementById('cpFrontImage').addEventListener('change', async (e) => 
     reader.readAsDataURL(file);
   });
   frontImageBitmap = await createImageBitmap(file);
+  // Auto-detect palette and seed the colour pickers from the uploaded cover.
+  applyPaletteToDesign(extractPalette(frontImageBitmap));
   rebuildTexture();
 });
 
@@ -1660,10 +1709,12 @@ function loadDesignList() {
     input.style.display = '';
     input.value = '';
     input.focus();
+    saveBtn.textContent = 'OK';
   }
   function hideInput() {
     input.style.display = 'none';
     sel.style.display = '';
+    saveBtn.textContent = 'Save';
   }
   function commit() {
     const name = input.value.trim();
