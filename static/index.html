@@ -571,11 +571,12 @@ openSlider.addEventListener('input', () => setOpenAmount(parseInt(openSlider.val
 
 function applyRotation() {
   if (!bookGroup) return;
-  // Base orientation: book stands upright (rotation.x = -PI/2)
+  // Base orientation: book stands upright (rotation.x = -PI/2) and rotated
+  // 180° around Z so the post-UV-swap front face faces the camera by default.
   // Slider rotations are additive on top of that.
   bookGroup.rotation.x = -Math.PI / 2 + (parseInt(rotXSlider.value) / 180) * Math.PI;
   bookGroup.rotation.y = (parseInt(rotYSlider.value) / 180) * Math.PI;
-  bookGroup.rotation.z = (parseInt(rotZSlider.value) / 180) * Math.PI;
+  bookGroup.rotation.z = Math.PI + (parseInt(rotZSlider.value) / 180) * Math.PI;
 }
 
 function onRotSlider() {
