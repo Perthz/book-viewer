@@ -1195,18 +1195,26 @@ function paintSpine(d) {
     const maxLen = visH * 0.78;
     const titleText  = d.spine.title.trim();
     const authorText = d.spine.author.trim();
+    // Positions along the spine axis (rotated -90°): title near top, author near bottom.
+    const titleCX  = -visH * 0.05;  // center x of title in rotated coords
+    const authorCX =  visH * 0.32;  // center x of author in rotated coords
+    let titleHalfW = 0;
     if (titleText) {
       const minSz = Math.max(size * 0.4, 14 * (visH / 1500));
       const sz = fitFontSize(ctx, titleText, maxLen, size * 1.2, minSz, s => `bold ${s}px Georgia, serif`);
       ctx.font = `bold ${sz}px Georgia, serif`;
-      fillTextEllipsis(ctx, titleText, -visH * 0.05, 0, maxLen);
+      titleHalfW = Math.min(ctx.measureText(titleText).width, maxLen) / 2;
+      fillTextEllipsis(ctx, titleText, titleCX, 0, maxLen);
     }
     if (authorText) {
       const authorSz = size * 0.7;
       const minSz = Math.max(authorSz * 0.5, 11 * (visH / 1500));
       const sz = fitFontSize(ctx, authorText, maxLen, authorSz, minSz, s => `${s}px Georgia, serif`);
       ctx.font = `${sz}px Georgia, serif`;
-      fillTextEllipsis(ctx, authorText, visH * 0.32, 0, maxLen);
+      const authorHalfW = Math.min(ctx.measureText(authorText).width, maxLen) / 2;
+      // Only draw author if it won't overlap the title (real books drop author on thin spines).
+      const gap = (authorCX - authorHalfW) - (titleCX + titleHalfW);
+      if (gap >= visH * 0.03) fillTextEllipsis(ctx, authorText, authorCX, 0, maxLen);
     }
     ctx.restore();
   });
@@ -1774,6 +1782,18 @@ document.getElementById('cpReapplyPalette').addEventListener('click', () => {
   rebuildTexture(); applyTextureToBook(true);
 });
 
+// Resize book width proportionally to match a cover image's aspect ratio.
+// Height stays fixed; width = height × (imgW / imgH), clamped to slider range.
+function fitBookProportionsToImage(bitmap) {
+  const aspect = bitmap.width / bitmap.height;
+  const h = parseFloat(sliders.h.value);
+  const rawW = h * aspect;
+  const newW = Math.max(5, Math.min(50, Math.round(rawW * 2) / 2)); // step 0.5
+  sliders.w.value = newW;
+  vals.w.textContent = newW.toFixed(1);
+  applySize(newW, h, parseFloat(sliders.t.value), parseFloat(sliders.pb.value));
+}
+
 document.getElementById('cpFrontImage').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   document.getElementById('cpFrontImageName').textContent = file ? file.name : '';
@@ -1791,6 +1811,7 @@ document.getElementById('cpFrontImage').addEventListener('change', async (e) => 
     reader.readAsDataURL(file);
   });
   frontImageBitmap = await createImageBitmap(file);
+  fitBookProportionsToImage(frontImageBitmap);
   // Auto-detect palette and seed the colour pickers from the uploaded cover.
   const applied = applyPaletteToDesign(extractPalette(frontImageBitmap));
   flashPaletteStatus(applied);
@@ -1946,6 +1967,7 @@ document.getElementById('cpEpubInput').addEventListener('change', async (e) => {
       document.getElementById('cpFrontImageName').textContent = file.name + ' (cover)';
       const reapplyBtn = document.getElementById('cpReapplyPalette');
       reapplyBtn.disabled = false; reapplyBtn.style.opacity = 1; reapplyBtn.style.cursor = 'pointer';
+      fitBookProportionsToImage(frontImageBitmap);
       applyPaletteToDesign(extractPalette(frontImageBitmap));
       updated.push('cover');
     }
