@@ -187,7 +187,7 @@
 
   <div id="cpPreviewWrap">
     <canvas id="cpPreview" width="540" height="540"></canvas>
-    <div id="cpPreviewLabel">UV LAYOUT · BACK | SPINE | FRONT</div>
+    <div id="cpPreviewLabel">UV LAYOUT · BACK | SPINE | FRONT (canvas-X order)</div>
   </div>
 
   <div id="cpCalibRow" style="margin-bottom:10px;display:none;align-items:center;gap:10px;">
@@ -866,12 +866,12 @@ let uvAtlasOverride = null;                // full-atlas image, when set rebuild
 // during calibration by reading which corner letter (TL/TR/BL/BR) lands where.
 const REGIONS = {
   // Cover trio tiles edge-to-edge across the bottom-half of the texture.
-  // Layout (canvas-X order):  FRONT | SPINE | BACK  — verified empirically.
-  // All three start at y0=1224 (top of the visible face; the liner area above
-  // is hidden when the book is closed). Back width == front width (620px).
-  front:        { x0:    0, y0: 1224, x1:  611, y1: 2048, color: '#5A8CFF', label: 'FRONT',     flipX: true,  flipY: false, visY0: 1224 },
+  // Layout (canvas-X order):  BACK | SPINE | FRONT  — matches the model's UV
+  // unwrap (spine cut, fore-edge wrap around). All three faces start at
+  // y0=1224 (top of the visible face; the liner area above is hidden).
+  back:         { x0:    0, y0: 1224, x1:  611, y1: 2048, color: '#3CFA82', label: 'BACK',      flipX: true,  flipY: false, visY0: 1224 },
   spine:        { x0:  611, y0: 1224, x1:  781, y1: 2048, color: '#FFC81E', label: 'SPINE',     flipX: true,  flipY: false, visY0: 1224 },
-  back:         { x0:  781, y0: 1224, x1: 1403, y1: 2048, color: '#3CFA82', label: 'BACK',      flipX: true,  flipY: false, visY0: 1224 },
+  front:        { x0:  781, y0: 1224, x1: 1403, y1: 2048, color: '#5A8CFF', label: 'FRONT',     flipX: true,  flipY: false, visY0: 1224 },
   paperEdges:   { x0:    0, y0:  150, x1: 1990, y1:  417, color: '#BBBBBB', label: 'PAPER',     flipX: false, flipY: false },
   innerCover:   { x0:    0, y0:  404, x1: 1403, y1: 1224, color: '#888888', label: 'INNER',     flipX: false, flipY: false },
   contentUpper: { x0: 1403, y0:  541, x1: 2048, y1: 1291, color: '#FF8800', label: 'CONTENT-U', flipX: true,  flipY: false },
@@ -1548,9 +1548,9 @@ document.getElementById('cpCopyCalib').addEventListener('click', () => {
   // region can be sized independently.
   function edges() {
     return [
-      { axis:'x', get:()=>REGIONS.front.x1,        set:(v)=>{ REGIONS.front.x1=v; REGIONS.spine.x0=v; } },
-      { axis:'x', get:()=>REGIONS.spine.x1,         set:(v)=>{ REGIONS.spine.x1=v; REGIONS.back.x0=v; } },
-      { axis:'x', get:()=>REGIONS.back.x1,          set:(v)=>{ REGIONS.back.x1=v; REGIONS.innerCover.x1=v; REGIONS.contentUpper.x0=v; REGIONS.contentLower.x0=v; } },
+      { axis:'x', get:()=>REGIONS.back.x1,          set:(v)=>{ REGIONS.back.x1=v; REGIONS.spine.x0=v; } },
+      { axis:'x', get:()=>REGIONS.spine.x1,         set:(v)=>{ REGIONS.spine.x1=v; REGIONS.front.x0=v; } },
+      { axis:'x', get:()=>REGIONS.front.x1,         set:(v)=>{ REGIONS.front.x1=v; REGIONS.innerCover.x1=v; REGIONS.contentUpper.x0=v; REGIONS.contentLower.x0=v; } },
       { axis:'y', get:()=>REGIONS.paperEdges.y0,    set:(v)=>{ REGIONS.paperEdges.y0=v; } },
       { axis:'y', get:()=>REGIONS.paperEdges.y1,    set:(v)=>{ REGIONS.paperEdges.y1=v; } },
       { axis:'y', get:()=>REGIONS.innerCover.y0,    set:(v)=>{ REGIONS.innerCover.y0=v; } },
