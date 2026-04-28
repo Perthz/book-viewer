@@ -1028,6 +1028,25 @@ function wrapText(ctx, text, maxWidth) {
   return lines;
 }
 
+// Draw text clipped with an ellipsis when it exceeds maxWidth.
+function fillTextEllipsis(ctx, text, x, y, maxWidth) {
+  if (ctx.measureText(text).width <= maxWidth) { ctx.fillText(text, x, y); return; }
+  let t = text;
+  while (t.length > 1 && ctx.measureText(t + '…').width > maxWidth) t = t.slice(0, -1);
+  ctx.fillText(t + '…', x, y);
+}
+
+// Shrink fontSize until text fits maxWidth (or minSize is reached), return final size.
+function fitFontSize(ctx, text, maxWidth, startSize, minSize, fontDecl) {
+  let sz = startSize;
+  while (sz > minSize) {
+    ctx.font = fontDecl(sz);
+    if (ctx.measureText(text).width <= maxWidth) break;
+    sz = Math.max(minSize, sz - 0.5);
+  }
+  return sz;
+}
+
 // ── Per-zone painters ───────────────────────────────────────────────────────
 // Each painter draws WITHIN that zone's mask via destination-in clipping.
 // We achieve this by drawing into a per-zone scratch canvas, then compositing
@@ -1173,13 +1192,21 @@ function paintSpine(d) {
     // a wider spine and naturally carries bigger text in real publishing.
     const thickFactor = parseFloat(sliders.t.value) / DEFAULT_T;
     const size = d.spine.fontSize * (visH / 1500) * thickFactor;
-    if (d.spine.title.trim()) {
-      ctx.font = `bold ${size * 1.2}px Georgia, serif`;
-      ctx.fillText(d.spine.title.trim(), -visH * 0.05, 0);
+    const maxLen = visH * 0.78;
+    const titleText  = d.spine.title.trim();
+    const authorText = d.spine.author.trim();
+    if (titleText) {
+      const minSz = Math.max(size * 0.4, 14 * (visH / 1500));
+      const sz = fitFontSize(ctx, titleText, maxLen, size * 1.2, minSz, s => `bold ${s}px Georgia, serif`);
+      ctx.font = `bold ${sz}px Georgia, serif`;
+      fillTextEllipsis(ctx, titleText, -visH * 0.05, 0, maxLen);
     }
-    if (d.spine.author.trim()) {
-      ctx.font = `${size * 0.7}px Georgia, serif`;
-      ctx.fillText(d.spine.author.trim(), visH * 0.32, 0);
+    if (authorText) {
+      const authorSz = size * 0.7;
+      const minSz = Math.max(authorSz * 0.5, 11 * (visH / 1500));
+      const sz = fitFontSize(ctx, authorText, maxLen, authorSz, minSz, s => `${s}px Georgia, serif`);
+      ctx.font = `${sz}px Georgia, serif`;
+      fillTextEllipsis(ctx, authorText, visH * 0.32, 0, maxLen);
     }
     ctx.restore();
   });
@@ -1222,17 +1249,23 @@ function paintBack(d) {
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
 
-    // Header band
+    // Header band — title wraps up to 2 lines, author flows below
     if (hasHeader) {
+      const titleSize  = Math.max(28, sw * 0.06);
+      const bylineSize = Math.max(20, sw * 0.034);
+      let cursorY = sy0;
       if (title) {
-        const titleSize = Math.max(28, sw * 0.06);
         ctx.font = `bold ${titleSize}px Georgia, serif`;
-        ctx.fillText(title, sx0, sy0);
+        const titleLines = wrapText(ctx, title, sw).slice(0, 2);
+        const titleLineH = titleSize * 1.15;
+        for (const ln of titleLines) {
+          fillTextEllipsis(ctx, ln, sx0, cursorY, sw);
+          cursorY += titleLineH;
+        }
       }
       if (author) {
-        const bylineSize = Math.max(20, sw * 0.034);
         ctx.font = `italic ${bylineSize}px Georgia, serif`;
-        ctx.fillText(`by ${author}`, sx0, sy0 + (title ? Math.max(28, sw * 0.06) * 1.1 : 0));
+        ctx.fillText(`by ${author}`, sx0, cursorY);
       }
     }
 
