@@ -872,13 +872,13 @@ const REGIONS = {
   // sample from which rectangle, and per-region orientation flips) will
   // be tuned in a follow-up; for now both faces share the original flip
   // state so the calibration overlay reads correctly.
-  back:         { x0:    0, y0: 1224, x1:  611, y1: 2048, color: '#3CFA82', label: 'BACK',      flipX: true,  flipY: true,  visY0: 1224 },
+  back:         { x0:    0, y0: 1224, x1:  611, y1: 2048, color: '#3CFA82', label: 'BACK',      flipX: false, flipY: true,  visY0: 1224 },
   spine:        { x0:  611, y0: 1224, x1:  781, y1: 2048, color: '#FFC81E', label: 'SPINE',     flipX: true,  flipY: false, visY0: 1224 },
-  front:        { x0:  781, y0: 1224, x1: 1403, y1: 2048, color: '#5A8CFF', label: 'FRONT',     flipX: true,  flipY: true,  visY0: 1224 },
+  front:        { x0:  781, y0: 1224, x1: 1403, y1: 2048, color: '#5A8CFF', label: 'FRONT',     flipX: false, flipY: true,  visY0: 1224 },
   paperEdges:   { x0:    0, y0:  150, x1: 1990, y1:  417, color: '#BBBBBB', label: 'PAPER',     flipX: false, flipY: false },
   innerCover:   { x0:    0, y0:  404, x1: 1403, y1: 1224, color: '#888888', label: 'INNER',     flipX: false, flipY: false },
-  contentUpper: { x0: 1403, y0:  541, x1: 2048, y1: 1291, color: '#FF8800', label: 'CONTENT-U', flipX: true,  flipY: true  },
-  contentLower: { x0: 1403, y0: 1291, x1: 2048, y1: 2048, color: '#9933FF', label: 'CONTENT-L', flipX: true,  flipY: true  },
+  contentUpper: { x0: 1403, y0:  541, x1: 2048, y1: 1291, color: '#FF8800', label: 'CONTENT-U', flipX: false, flipY: true  },
+  contentLower: { x0: 1403, y0: 1291, x1: 2048, y1: 2048, color: '#9933FF', label: 'CONTENT-L', flipX: false, flipY: true  },
 };
 
 // ── State container (serializable design) ───────────────────────────────────
