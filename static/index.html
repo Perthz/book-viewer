@@ -667,6 +667,10 @@ function onSlider() {
   vals.t.textContent = t.toFixed(1);
   vals.pb.textContent = pb.toFixed(2);
   applySize(w, h, t, pb);
+  // Re-render the texture so size-dependent passes (spine text) follow the
+  // current dimensions. Cheap (paintSpine is a few hundred px of canvas) and
+  // only runs once the cover designer has been opened at least once.
+  if (coverDesignerReady) { rebuildTexture(); applyTextureToBook(true); }
 }
 
 sliders.w.addEventListener('input', onSlider);
@@ -1162,7 +1166,10 @@ function paintSpine(d) {
     ctx.fillStyle = d.spine.textColor;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    const size = d.spine.fontSize * (visH / 1500);
+    // Scale spine text proportionally to book thickness — a thicker book has
+    // a wider spine and naturally carries bigger text in real publishing.
+    const thickFactor = parseFloat(sliders.t.value) / DEFAULT_T;
+    const size = d.spine.fontSize * (visH / 1500) * thickFactor;
     if (d.spine.title.trim()) {
       ctx.font = `bold ${size * 1.2}px Georgia, serif`;
       ctx.fillText(d.spine.title.trim(), -visH * 0.05, 0);
