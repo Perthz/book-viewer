@@ -998,6 +998,14 @@ const $checkSet = (id, v) => { document.getElementById(id).checked = !!v; };
 
 const HEX_PAIRS = ['cpFrontColor','cpFrontTextColor','cpSpineColor','cpSpineTextColor','cpBackColor','cpBackTextColor','cpPaperColor','cpPageBgColor','cpInnerColor'];
 function syncHexLabels() {
+  // When inner-cover sync is on, mirror the front color into the inner picker
+  // so the swatch and hex field always show the color actually applied to the book.
+  if (document.getElementById('cpInnerSync')?.checked) {
+    const frontColor = $val('cpFrontColor');
+    document.getElementById('cpInnerColor').value = frontColor;
+    const hexEl = document.getElementById('cpInnerColorHex');
+    if (hexEl && document.activeElement !== hexEl) hexEl.value = frontColor.toUpperCase();
+  }
   HEX_PAIRS.forEach(id => {
     const el = document.getElementById(id + 'Hex');
     // Don't clobber the field while the user is typing in it
